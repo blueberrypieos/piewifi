@@ -1,0 +1,14 @@
+piewifi (1) blueberry-pie-os; urgency=medium
+
+  * piewifi 1
+  * src/openbsd-src is OpenBSD's 8.0 release on master, commit
+    58ef3138855e39db066749e3b8e95b21b7471144.
+  * PIE80211Family.kext: OpenBSD's net80211 for a station, with open
+    networks and WPA2-PSK with CCMP.
+  * PIEbwfm.kext: OpenBSD's bwfm for the CYW43455 of the Raspberry Pi 4
+    and 500, with the firmware of pie-firmware-brcm.
+  * pie-wifi: joins, lists and forgets networks, scans and shows the link.
+    pie-wifi watch gives the stored networks to each WiFi interface as it
+    appears.
+
+ -- Maxwell <maxwell@blueberrypieos.com>  Fri, 20 Nov 2026 10:17:38 +0000

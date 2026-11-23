@@ -1,0 +1,206 @@
+.\" SPDX-License-Identifier: BSD-2-Clause
+.\" Copyright (c) 2026 The Blueberry Pie OS Authors
+.Dd November 20, 2026
+.Dt PIE-WIFI 8
+.Os
+.Sh NAME
+.Nm pie-wifi
+.Nd join WiFi networks and show the link
+.Sh SYNOPSIS
+.Nm
+.Op Fl i Ar interface
+.Cm scan
+.Nm
+.Op Fl i Ar interface
+.Cm join
+.Ar ssid
+.Op Fl Fl open
+.Nm
+.Op Fl i Ar interface
+.Cm forget
+.Ar ssid
+.Nm
+.Cm list
+.Nm
+.Op Fl i Ar interface
+.Cm status
+.Nm
+.Op Fl i Ar interface
+.Cm country
+.Ar code
+.Nm
+.Op Fl i Ar interface
+.Cm load
+.Nm
+.Cm import
+.Ar file
+.Nm
+.Op Fl i Ar interface
+.Cm wait
+.Ar seconds
+.Nm
+.Cm watch
+.Sh DESCRIPTION
+.Nm
+stores the WiFi networks to join and gives them to the kernel.
+The kernel's 802.11 stack joins the best of them in range and does the
+WPA2 handshakes itself.
+.Nm
+talks to the interface through PIE80211Family's driver ioctls.
+The interface is
+.Ar interface .
+Without
+.Fl i ,
+it is the first interface that answers PIE80211Family's status command.
+.Pp
+A network is open or WPA2-PSK with CCMP.
+For a WPA2 network,
+.Nm
+stores the key that PBKDF2 derives from the passphrase and the SSID.
+It never stores the passphrase.
+.Pp
+The commands are:
+.Bl -tag -width indent
+.It Cm scan
+Scan, wait four seconds, then list the networks in range, one per line.
+A line holds the BSSID, the channel, the signal, the security and the
+SSID, separated by tabs.
+The scan is passive: the chip listens for the networks' beacons.
+While the interface is joined to a network, it does not scan.
+.Nm
+then says so and lists the networks it saw before.
+.It Cm join Ar ssid Op Fl Fl open
+Store a network and give it to the kernel.
+Without
+.Fl Fl open ,
+ask for its passphrase on the terminal, without echo.
+A passphrase has 8 to 63 printable ASCII characters.
+A stored network of the same SSID is replaced.
+.It Cm forget Ar ssid
+Remove a stored network, and take it from the kernel.
+.It Cm list
+List the stored networks, one per line, with the SSID, the security and
+the priority, separated by tabs.
+No key is shown.
+The priority is 0: no command sets another, and the kernel does not use
+it.
+.It Cm status
+Show the link: the 802.11 state, whether the link is up, and the last
+problem with a network.
+A WPA2 network that ends the association before its handshake is done,
+as it does when the passphrase is wrong, is such a problem.
+While associated, also show the SSID, the BSSID, the channel, the signal
+and the rate.
+.It Cm country Ar code
+Store the regulatory country, two capital letters, and give it to the
+kernel.
+Without a stored country, none is given, and the chip keeps the default
+of its firmware.
+.It Cm load
+Give the stored country and networks to the kernel, in place of the
+networks it has.
+.It Cm import Ar file
+Store the networks of a setup file, then delete the file.
+The file has an
+.Li ssid=
+line for each network.
+A WPA2 network's line is followed by a
+.Li passphrase=
+line.
+Empty lines and lines that start with
+.Ql #
+are skipped, and so is a UTF-8 byte order mark at the start.
+Any other line, or a NUL byte, makes the import fail, and nothing is
+stored.
+The file may have at most 4096 bytes.
+The networks reach the kernel with
+.Cm load .
+A file that cannot be deleted stays.
+.Nm
+says so after the count of the networks stored, and exits 3.
+A file with the FAT read-only attribute has it cleared first, so that it
+can be deleted.
+.It Cm wait Ar seconds
+Wait until the link is up, for at most
+.Ar seconds ,
+from 0 to 3600.
+.It Cm watch
+Give the stored country and networks to each WiFi interface when it
+appears, as
+.Cm load
+does, and again when it comes back.
+What fails is tried again once a minute, the country and the networks
+each until the interface has them.
+A failure is logged once, until it changes.
+.Cm watch
+runs until it is stopped, and logs to
+.Xr syslog 3 .
+rc starts it at boot.
+A second
+.Cm watch
+exits at once.
+.El
+.Pp
+An SSID is printed as it is, except that the backslash and any byte that
+is not printable are printed as
+.Li \e\&x
+and two hex digits.
+.Pp
+.Cm status
+and
+.Cm wait
+work for any user.
+The other commands need root.
+.Sh FILES
+.Bl -tag -width indent
+.It Pa /var/db/wifi/networks
+The stored networks, one per line: the SSID in hex, the security, the key
+in hex or
+.Ql -
+for an open network, and the priority.
+The file has mode 0600, in a directory of mode 0700.
+.It Pa /var/db/wifi/networks.lock
+.Cm join ,
+.Cm forget ,
+.Cm import
+and
+.Cm country
+hold an
+.Xr flock 2
+lock on it while they change the stored networks or the country, and
+.Cm join ,
+.Cm forget
+and
+.Cm country
+until the kernel has the change.
+.Cm load
+and
+.Cm watch
+hold it while they read the stored country and the networks and give
+them to the kernel.
+.It Pa /var/db/wifi/country
+The stored country.
+.Cm country
+replaces it through a temporary file, as the other commands replace the
+networks file.
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Cm wait
+exits 1 when the time runs out before the link is up.
+.Cm import
+exits 3 when it stored the networks but the file stays.
+.Sh EXAMPLES
+Join a WPA2 network, then wait for the link:
+.Bd -literal -offset indent
+# pie-wifi join 'Home Network'
+Passphrase:
+# pie-wifi wait 30 && pie-wifi status
+.Ed
+.Sh SEE ALSO
+.Xr ifconfig 8
+.Sh CAVEATS
+At most 16 networks are stored.
+.Pp
+Deleting a setup file does not erase it from flash memory.
+Its passphrases may stay readable on the card.

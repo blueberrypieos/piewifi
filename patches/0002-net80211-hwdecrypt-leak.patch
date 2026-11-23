@@ -1,0 +1,72 @@
+Description: net80211 frees the frames it drops after hardware decryption
+ ieee80211_input_hwdecrypt() returned NULL without freeing the frame when it
+ found no key, a bad packet number or a replayed one. Its callers set their
+ pointer to that NULL, so the frame was never freed. Every replayed frame
+ leaked an mbuf, and a sender needs no key to replay frames. Each of those
+ returns now frees the frame first.
+Author: The Blueberry Pie OS Authors
+Forwarded: yes
+Last-Update: 2026-11-19
+
+--- a/src/openbsd-src/sys/net80211/ieee80211_input.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_input.c
+@@ -30,6 +30,7 @@
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+ /* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
++/* Modified 2026-11-19: ieee80211_input_hwdecrypt() frees the frames it drops. */
+ 
+ #include "bpfilter.h"
+ 
+@@ -166,8 +167,10 @@
+ 	int hdrlen;
+ 
+ 	k = ieee80211_get_rxkey(ic, m, ni);
+-	if (k == NULL)
++	if (k == NULL) {
++		m_freem(m);
+ 		return NULL;
++	}
+ 	
+ 	wh = mtod(m, struct ieee80211_frame *);
+ 	hdrlen = ieee80211_get_hdrlen(wh);
+@@ -193,15 +196,18 @@
+ 		}
+ 		if (ieee80211_ccmp_get_pn(&pn, &prsc, m, k) != 0) {
+ 			ic->ic_stats.is_ccmp_dec_errs++;
++			m_freem(m);
+ 			return NULL;
+ 		}
+ 		if (rxi->rxi_flags & IEEE80211_RXI_HWDEC_SAME_PN) {
+ 			if (pn < *prsc) {
+ 				ic->ic_stats.is_ccmp_replays++;
++				m_freem(m);
+ 				return NULL;
+ 			}
+ 		} else if (pn <= *prsc) {
+ 			ic->ic_stats.is_ccmp_replays++;
++			m_freem(m);
+ 			return NULL;
+ 		}
+ 
+@@ -223,15 +229,19 @@
+ 			 */
+ 			break;
+ 		}
+-		if (ieee80211_tkip_get_tsc(&pn, &prsc, m, k) != 0)
++		if (ieee80211_tkip_get_tsc(&pn, &prsc, m, k) != 0) {
++			m_freem(m);
+ 			return NULL;
++		}
+ 		if (rxi->rxi_flags & IEEE80211_RXI_HWDEC_SAME_PN) {
+ 			if (pn < *prsc) {
+ 				ic->ic_stats.is_tkip_replays++;
++				m_freem(m);
+ 				return NULL;
+ 			}
+ 		} else if (pn <= *prsc) {
+ 			ic->ic_stats.is_tkip_replays++;
++			m_freem(m);
+ 			return NULL;
+ 		}
+ 

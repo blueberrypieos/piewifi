@@ -1,0 +1,596 @@
+Description: OpenBSD's net80211 and crypto find PIE's headers, not xnu's
+ kext.mk puts the kernel's headers before a kext's own include paths. xnu
+ has headers with the names of OpenBSD's sys/mbuf.h, net/if.h, crypto/aes.h
+ and others, with other contents. Each include of such a name is quoted, so
+ it finds PIE80211Family's compat headers or OpenBSD's crypto headers
+ first. Includes of names xnu does not have stay as they are.
+Author: The Blueberry Pie OS Authors
+Forwarded: not-needed
+Last-Update: 2026-11-19
+
+--- a/src/openbsd-src/sys/net80211/ieee80211.c
++++ b/src/openbsd-src/sys/net80211/ieee80211.c
+@@ -28,6 +28,7 @@
+  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * IEEE 802.11 generic handler
+@@ -35,26 +36,26 @@
+ 
+ #include "bpfilter.h"
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ #include <sys/endian.h>
+-#include <sys/errno.h>
+-#include <sys/sysctl.h>
++#include "sys/errno.h"
++#include "sys/sysctl.h"
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
+ 
+ #if NBPFILTER > 0
+-#include <net/bpf.h>
++#include "net/bpf.h"
+ #endif
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_priv.h>
+--- a/src/openbsd-src/sys/net80211/ieee80211_input.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_input.c
+@@ -29,32 +29,33 @@
+  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ #include "bpfilter.h"
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/malloc.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/malloc.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ #include <sys/endian.h>
+-#include <sys/errno.h>
+-#include <sys/sysctl.h>
++#include "sys/errno.h"
++#include "sys/sysctl.h"
+ #include <sys/task.h>
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
+-#include <net/if_llc.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
++#include "net/if_llc.h"
+ 
+ #if NBPFILTER > 0
+-#include <net/bpf.h>
++#include "net/bpf.h"
+ #endif
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_priv.h>
+--- a/src/openbsd-src/sys/net80211/ieee80211_output.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_output.c
+@@ -29,35 +29,36 @@
+  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ #include "bpfilter.h"
+ #include "vlan.h"
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ #include <sys/endian.h>
+-#include <sys/errno.h>
+-#include <sys/sysctl.h>
++#include "sys/errno.h"
++#include "sys/sysctl.h"
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
+-#include <net/if_llc.h>
+-#include <net/bpf.h>
+-
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
+-#include <netinet/ip.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
++#include "net/if_llc.h"
++#include "net/bpf.h"
++
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
++#include "netinet/ip.h"
+ #ifdef INET6
+-#include <netinet/ip6.h>
++#include "netinet/ip6.h"
+ #endif
+ 
+ #if NVLAN > 0
+-#include <net/if_vlan_var.h>
++#include "net/if_vlan_var.h"
+ #endif
+ 
+ #include <net80211/ieee80211_var.h>
+--- a/src/openbsd-src/sys/net80211/ieee80211_node.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_node.c
+@@ -29,27 +29,28 @@
+  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ #include "bridge.h"
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/malloc.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/malloc.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ #include <sys/endian.h>
+-#include <sys/errno.h>
+-#include <sys/sysctl.h>
++#include "sys/errno.h"
++#include "sys/sysctl.h"
+ #include <sys/tree.h>
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #if NBRIDGE > 0
+ #include <net/if_bridge.h>
+--- a/src/openbsd-src/sys/net80211/ieee80211_proto.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_proto.c
+@@ -29,29 +29,30 @@
+  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * IEEE 802.11 protocol support.
+  */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ #include <sys/endian.h>
+-#include <sys/errno.h>
+-#include <sys/sysctl.h>
++#include "sys/errno.h"
++#include "sys/sysctl.h"
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
+-#include <net/if_llc.h>
+-#include <net/route.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
++#include "net/if_llc.h"
++#include "net/route.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_priv.h>
+--- a/src/openbsd-src/sys/net80211/ieee80211_crypto.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_crypto.c
+@@ -15,34 +15,35 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/malloc.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/malloc.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ #include <sys/endian.h>
+-#include <sys/errno.h>
+-#include <sys/sysctl.h>
++#include "sys/errno.h"
++#include "sys/sysctl.h"
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_priv.h>
+ 
+ #include <crypto/arc4.h>
+ #include <crypto/md5.h>
+-#include <crypto/sha1.h>
+-#include <crypto/sha2.h>
++#include "crypto/sha1.h"
++#include "crypto/sha2.h"
+ #include <crypto/hmac.h>
+-#include <crypto/aes.h>
++#include "crypto/aes.h"
+ #include <crypto/cmac.h>
+ #include <crypto/key_wrap.h>
+ 
+--- a/src/openbsd-src/sys/net80211/ieee80211_crypto_ccmp.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_crypto_ccmp.c
+@@ -15,31 +15,32 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * This code implements the CTR with CBC-MAC protocol (CCMP) defined in
+  * IEEE Std 802.11-2007 section 8.3.3.
+  */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/malloc.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/malloc.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
+ #include <sys/endian.h>
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_crypto.h>
+ 
+-#include <crypto/aes.h>
++#include "crypto/aes.h"
+ 
+ /* CCMP software crypto context */
+ struct ieee80211_ccmp_ctx {
+--- a/src/openbsd-src/sys/net80211/ieee80211_pae_input.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_pae_input.c
+@@ -15,6 +15,7 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * This code implements the 4-Way Handshake and Group Key Handshake protocols
+@@ -22,20 +23,20 @@
+  * IEEE Std 802.11-2007 section 8.5.
+  */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
+-#include <sys/errno.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
++#include "sys/errno.h"
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_priv.h>
+--- a/src/openbsd-src/sys/net80211/ieee80211_pae_output.c
++++ b/src/openbsd-src/sys/net80211/ieee80211_pae_output.c
+@@ -15,6 +15,7 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * This code implements the 4-Way Handshake and Group Key Handshake protocols
+@@ -22,23 +23,23 @@
+  * IEEE Std 802.11-2007 section 8.5.
+  */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/mbuf.h>
+-#include <sys/kernel.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/mbuf.h"
++#include "sys/kernel.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ #include <sys/endian.h>
+-#include <sys/errno.h>
++#include "sys/errno.h"
+ 
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
+-#include <net/if_llc.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
++#include "net/if_llc.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
+-#include <netinet/ip.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
++#include "netinet/ip.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ #include <net80211/ieee80211_priv.h>
+--- a/src/openbsd-src/sys/crypto/aes.c
++++ b/src/openbsd-src/sys/crypto/aes.c
+@@ -24,9 +24,10 @@
+  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  * SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ #include <sys/types.h>
+-#include <sys/systm.h>
++#include "sys/systm.h"
+ #include <sys/stdint.h>
+ 
+ #include "aes.h"
+--- a/src/openbsd-src/sys/crypto/hmac.c
++++ b/src/openbsd-src/sys/crypto/hmac.c
+@@ -15,18 +15,19 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * This code implements the HMAC algorithm described in RFC 2104 using
+  * the MD5, SHA1 and SHA-256 hash functions.
+  */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
++#include "sys/param.h"
++#include "sys/systm.h"
+ 
+ #include <crypto/md5.h>
+-#include <crypto/sha1.h>
+-#include <crypto/sha2.h>
++#include "crypto/sha1.h"
++#include "crypto/sha2.h"
+ #include <crypto/hmac.h>
+ 
+ void
+--- a/src/openbsd-src/sys/crypto/sha1.c
++++ b/src/openbsd-src/sys/crypto/sha1.c
+@@ -13,16 +13,17 @@
+  * A million repetitions of "a"
+  *   34AA973C D4C4DAA4 F61EEB2B DBAD2731 6534016F
+ */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /* #define LITTLE_ENDIAN * This should be #define'd already, if true. */
+ /* #define SHA1HANDSOFF * Copies data before messing with it. */
+ 
+ #define SHA1HANDSOFF
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
++#include "sys/param.h"
++#include "sys/systm.h"
+ 
+-#include <crypto/sha1.h>
++#include "crypto/sha1.h"
+ 
+ #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
+ 
+--- a/src/openbsd-src/sys/crypto/sha2.c
++++ b/src/openbsd-src/sys/crypto/sha2.c
+@@ -33,10 +33,11 @@
+  *
+  * $From: sha2.c,v 1.1 2001/11/08 00:01:51 adg Exp adg $
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ #include <sys/time.h>
+-#include <sys/systm.h>
+-#include <crypto/sha2.h>
++#include "sys/systm.h"
++#include "crypto/sha2.h"
+ 
+ /*
+  * UNROLLED TRANSFORM LOOP NOTE:
+--- a/src/openbsd-src/sys/crypto/md5.c
++++ b/src/openbsd-src/sys/crypto/md5.c
+@@ -16,9 +16,10 @@
+  * needed on buffers full of bytes, and then call MD5Final, which
+  * will fill a supplied 16-byte array with the digest.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
++#include "sys/param.h"
++#include "sys/systm.h"
+ #include <crypto/md5.h>
+ 
+ #define PUT_64BIT_LE(cp, value) do {					\
+--- a/src/openbsd-src/sys/crypto/cmac.c
++++ b/src/openbsd-src/sys/crypto/cmac.c
+@@ -15,16 +15,17 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * This code implements the CMAC (Cipher-based Message Authentication)
+  * algorithm described in FIPS SP800-38B using the AES-128 cipher.
+  */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
++#include "sys/param.h"
++#include "sys/systm.h"
+ 
+-#include <crypto/aes.h>
++#include "crypto/aes.h"
+ #include <crypto/cmac.h>
+ 
+ #define LSHIFT(v, r) do {					\
+--- a/src/openbsd-src/sys/crypto/key_wrap.c
++++ b/src/openbsd-src/sys/crypto/key_wrap.c
+@@ -15,15 +15,16 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-19: includes whose names xnu also has are quoted, to find PIE's headers. */
+ 
+ /*
+  * This code implements the AES Key Wrap algorithm described in RFC 3394.
+  */
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
++#include "sys/param.h"
++#include "sys/systm.h"
+ 
+-#include <crypto/aes.h>
++#include "crypto/aes.h"
+ #include <crypto/key_wrap.h>
+ 
+ static const u_int8_t IV[8] =

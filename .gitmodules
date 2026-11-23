@@ -1,0 +1,3 @@
+[submodule "src/openbsd-src"]
+	path = src/openbsd-src
+	url = https://github.com/openbsd/src.git

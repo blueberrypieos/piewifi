@@ -1,0 +1,985 @@
+Description: OpenBSD's bwfm on PIE
+ bwfm drives the CYW43455 on the Raspberry Pi 4 and 500 through PIE's SDIO
+ interface and PIE80211Family. The SDIO glue takes the card's functions and
+ the bus claim from PIE's SDIO interface. Its bus work runs on PIEbwfm's
+ bus thread, and the card's interrupt runs it with the claim held. Event
+ and data frames go to a task in the family's gate, where net80211 runs.
+ The transmit queue, its count and the control requests are kept under a
+ lock that both sides take. A control request waits for its answer under
+ that lock, so an answer that comes before the wait is not lost. An answer
+ of the wrong length fails the request instead of freeing it while its
+ sender still holds it. A request number stays within the 16 bits the
+ protocol carries, skips one still waiting, and goes into its header as
+ unsigned. All multicast frames are received, and the ioctls are the
+ family's. An all-zero local-mac-address is not used. When the device tree
+ gives an address, the NVRAM's own macaddr line goes, as the firmware takes
+ the first, and the address follows the last entry, ended first if the file
+ did not end it. The chip must end up with a valid address that is not the
+ NVRAM's shared one, or the attach fails. A join that the firmware reports
+ failed with E_SET_SSID, as when it finds no network, starts a new scan
+ instead of staying in AUTH. Every scan is passive. The firmware's default
+ is passive, a scan never asks for an SSID, and the join scans only the
+ channel of the network chosen. A key that the firmware does not take
+ leaves the port closed and starts a new scan. The chip's set-up is a
+ function of its own, so that it can run again after a reset of the card,
+ and preinit frees the media list and BSS node of the one before. Detach
+ frees the events and frames still queued, and an attach that fails frees
+ what it took. A function of its own sets the clocks for PIE's detach,
+ which leaves the chip passive, so that its firmware does not stay
+ associated and active with no driver loaded. Cleanup and a new firmware
+ load free the CLM and other blobs still held. No newline ends the attach
+ line, as PIE prints no autoconf line before it.
+Author: The Blueberry Pie OS Authors
+Forwarded: no
+Last-Update: 2026-11-20
+
+--- a/src/openbsd-src/sys/dev/ic/bwfm.c
++++ b/src/openbsd-src/sys/dev/ic/bwfm.c
+@@ -15,33 +15,46 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-20: includes whose names xnu also has are quoted, to find PIE's headers. */
++/* Modified 2026-11-20: a firmware command waits for its answer under PIE's lock, and an answer of the wrong length fails the command instead of freeing it. */
++/* Modified 2026-11-20: on PIE all multicast frames are received, and the ioctls are PIE80211Family's. */
++/* Modified 2026-11-20: an all-zero local-mac-address is not used, and the NVRAM's own macaddr goes when the device tree gives one. */
++/* Modified 2026-11-20: on PIE the chip ends up with a valid address that is not the NVRAM's shared one, or its attach fails. */
++/* Modified 2026-11-20: on PIE a join that the firmware reports failed with E_SET_SSID starts a new scan. */
++/* Modified 2026-11-20: on PIE every scan is passive, the join's own scan included, and both join requests name the network's channel. */
++/* Modified 2026-11-20: a request number goes into its header as unsigned, and on PIE stays within the 16 bits the protocol carries and skips one still waiting. */
++/* Modified 2026-11-20: on PIE a key the firmware does not take leaves the port closed and starts a new scan. */
++/* Modified 2026-11-20: on PIE preinit frees the media list and BSS node of the one before, so that it can run again. */
++/* Modified 2026-11-20: detach frees the events still queued. */
++/* Modified 2026-11-20: on PIE cleanup and a new firmware load free the CLM and other blobs still held. */
++/* Modified 2026-11-20: on PIE the device tree's address follows the last entry, which is ended first if the file did not end it. */
+ 
+ #include "bpfilter.h"
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/buf.h>
+-#include <sys/kernel.h>
+-#include <sys/malloc.h>
+-#include <sys/device.h>
+-#include <sys/queue.h>
+-#include <sys/socket.h>
+-#include <sys/sockio.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/buf.h"
++#include "sys/kernel.h"
++#include "sys/malloc.h"
++#include "sys/device.h"
++#include "sys/queue.h"
++#include "sys/socket.h"
++#include "sys/sockio.h"
+ 
+ #if defined(__HAVE_FDT)
+-#include <machine/fdt.h>
+-#include <dev/ofw/openfirm.h>
++#include "machine/fdt.h"
++#include "dev/ofw/openfirm.h"
+ #endif
+ 
+ #if NBPFILTER > 0
+-#include <net/bpf.h>
++#include "net/bpf.h"
+ #endif
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ 
+@@ -212,7 +225,9 @@
+ 
+ 	ifp->if_softc = sc;
+ 	ifp->if_flags = IFF_BROADCAST | IFF_SIMPLEX | IFF_MULTICAST;
++#ifndef PIE_PORT
+ 	ifp->if_ioctl = bwfm_ioctl;
++#endif
+ 	ifp->if_start = bwfm_start;
+ 	ifp->if_watchdog = bwfm_watchdog;
+ 	memcpy(ifp->if_xname, DEVNAME(sc), IFNAMSIZ);
+@@ -263,6 +278,10 @@
+ 		printf("%s: could not read mac address\n", DEVNAME(sc));
+ 		return 1;
+ 	}
++#ifdef PIE_PORT
++	if (bwfm_pie_check_mac(sc) != 0)
++		return 1;
++#endif
+ 
+ 	printf("%s: address %s\n", DEVNAME(sc), ether_sprintf(ic->ic_myaddr));
+ 
+@@ -339,6 +358,11 @@
+ 	if (if_setlladdr(ifp, ic->ic_myaddr))
+ 		printf("%s: could not set MAC address\n", DEVNAME(sc));
+ 
++#ifdef PIE_PORT
++	ifmedia_delete_instance(&ic->ic_media, IFM_INST_ANY);
++	(*ic->ic_node_free)(ic, ic->ic_bss);
++	ic->ic_bss = NULL;
++#endif
+ 	ieee80211_media_init(ifp, bwfm_media_change, ieee80211_media_status);
+ 	return 0;
+ }
+@@ -347,6 +371,9 @@
+ bwfm_cleanup(struct bwfm_softc *sc)
+ {
+ 	bwfm_chip_detach(sc);
++#ifdef PIE_PORT
++	bwfm_pie_free_blobs(sc);
++#endif
+ 	sc->sc_initialized = 0;
+ }
+ 
+@@ -357,6 +384,7 @@
+ 	struct ifnet *ifp = &ic->ic_if;
+ 
+ 	task_del(sc->sc_taskq, &sc->sc_task);
++	ml_purge(&sc->sc_evml);
+ 	ieee80211_ifdetach(ifp);
+ 	taskq_barrier(sc->sc_taskq);
+ 	if_detach(ifp);
+@@ -491,6 +519,9 @@
+ 	switch (ic->ic_opmode) {
+ 	case IEEE80211_M_STA:
+ 		BWFM_EVENT(BWFM_E_IF);
++#ifdef PIE_PORT
++		BWFM_EVENT(BWFM_E_SET_SSID);
++#endif
+ 		BWFM_EVENT(BWFM_E_LINK);
+ 		BWFM_EVENT(BWFM_E_AUTH);
+ 		BWFM_EVENT(BWFM_E_ASSOC);
+@@ -535,6 +566,12 @@
+ 		printf("%s: could not set scan passive time\n", DEVNAME(sc));
+ 		return;
+ 	}
++#ifdef PIE_PORT
++	if (bwfm_fwvar_cmd_set_int(sc, BWFM_C_SET_PASSIVE_SCAN, 1)) {
++		printf("%s: could not set passive scans\n", DEVNAME(sc));
++		return;
++	}
++#endif
+ 
+ 	/*
+ 	 * Use CAM (constantly awake) when we are running as AP,
+@@ -606,6 +643,15 @@
+ void
+ bwfm_iff(struct bwfm_softc *sc)
+ {
++#ifdef PIE_PORT
++	struct ifnet *ifp = &sc->sc_ic.ic_if;
++	uint32_t none = 0;
++
++	ifp->if_flags |= IFF_ALLMULTI;
++	bwfm_fwvar_var_set_data(sc, "mcast_list", &none, sizeof(none));
++	bwfm_fwvar_var_set_int(sc, "allmulti", 1);
++	bwfm_fwvar_cmd_set_int(sc, BWFM_C_SET_PROMISC, 0);
++#else
+ 	struct arpcom *ac = &sc->sc_ic.ic_ac;
+ 	struct ifnet *ifp = &ac->ac_if;
+ 	struct ether_multi *enm;
+@@ -638,6 +684,7 @@
+ 	    !!(ifp->if_flags & IFF_PROMISC));
+ 
+ 	free(mcast, M_TEMP, mcastlen);
++#endif
+ }
+ 
+ void
+@@ -806,6 +853,7 @@
+ 	}
+ }
+ 
++#ifndef PIE_PORT
+ int
+ bwfm_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
+ {
+@@ -859,6 +907,7 @@
+ 	splx(s);
+ 	return error;
+ }
++#endif
+ 
+ int
+ bwfm_media_change(struct ifnet *ifp)
+@@ -1613,6 +1662,26 @@
+ }
+ 
+ /* BCDC protocol implementation */
++#ifdef PIE_PORT
++int
++bwfm_proto_bcdc_reqid(struct bwfm_softc *sc)
++{
++	struct bwfm_proto_bcdc_ctl *ctl;
++	int reqid;
++
++	bwfm_pie_lock(sc);
++	do {
++		reqid = sc->sc_bcdc_reqid & 0xffff;
++		sc->sc_bcdc_reqid = (reqid + 1) & 0xffff;
++		TAILQ_FOREACH(ctl, &sc->sc_bcdc_rxctlq, next)
++			if (ctl->reqid == reqid)
++				break;
++	} while (ctl != NULL);
++	bwfm_pie_unlock(sc);
++	return reqid;
++}
++
++#endif
+ int
+ bwfm_proto_bcdc_query_dcmd(struct bwfm_softc *sc, int ifidx,
+     int cmd, char *buf, size_t *len)
+@@ -1621,7 +1690,11 @@
+ 	size_t size = sizeof(dcmd->hdr) + *len;
+ 	int ret = 1, reqid;
+ 
++#ifdef PIE_PORT
++	reqid = bwfm_proto_bcdc_reqid(sc);
++#else
+ 	reqid = sc->sc_bcdc_reqid++;
++#endif
+ 
+ 	if (*len > sizeof(dcmd->buf))
+ 		return ret;
+@@ -1630,7 +1703,7 @@
+ 	dcmd->hdr.cmd = htole32(cmd);
+ 	dcmd->hdr.len = htole32(*len);
+ 	dcmd->hdr.flags |= BWFM_BCDC_DCMD_GET;
+-	dcmd->hdr.flags |= BWFM_BCDC_DCMD_ID_SET(reqid);
++	dcmd->hdr.flags |= BWFM_BCDC_DCMD_ID_SET((uint32_t)reqid);
+ 	dcmd->hdr.flags |= BWFM_BCDC_DCMD_IF_SET(ifidx);
+ 	dcmd->hdr.flags = htole32(dcmd->hdr.flags);
+ 	memcpy(&dcmd->buf, buf, *len);
+@@ -1661,7 +1734,11 @@
+ 	size_t size = sizeof(dcmd->hdr) + len;
+ 	int ret = 1, reqid;
+ 
++#ifdef PIE_PORT
++	reqid = bwfm_proto_bcdc_reqid(sc);
++#else
+ 	reqid = sc->sc_bcdc_reqid++;
++#endif
+ 
+ 	if (len > sizeof(dcmd->buf))
+ 		return ret;
+@@ -1670,7 +1747,7 @@
+ 	dcmd->hdr.cmd = htole32(cmd);
+ 	dcmd->hdr.len = htole32(len);
+ 	dcmd->hdr.flags |= BWFM_BCDC_DCMD_SET;
+-	dcmd->hdr.flags |= BWFM_BCDC_DCMD_ID_SET(reqid);
++	dcmd->hdr.flags |= BWFM_BCDC_DCMD_ID_SET((uint32_t)reqid);
+ 	dcmd->hdr.flags |= BWFM_BCDC_DCMD_IF_SET(ifidx);
+ 	dcmd->hdr.flags = htole32(dcmd->hdr.flags);
+ 	memcpy(&dcmd->buf, buf, len);
+@@ -1691,7 +1768,7 @@
+ int
+ bwfm_proto_bcdc_txctl(struct bwfm_softc *sc, int reqid, char *buf, size_t *len)
+ {
+-	struct bwfm_proto_bcdc_ctl *ctl, *tmp;
++	struct bwfm_proto_bcdc_ctl *ctl;
+ 	int timeout = 0;
+ 
+ 	ctl = malloc(sizeof(*ctl), M_TEMP, M_WAITOK|M_ZERO);
+@@ -1704,31 +1781,21 @@
+ 		return 1;
+ 	}
+ 
+-	if (tsleep_nsec(ctl, PWAIT, "bwfm", SEC_TO_NSEC(1)))
+-		timeout = 1;
+-
+-	TAILQ_FOREACH_SAFE(ctl, &sc->sc_bcdc_rxctlq, next, tmp) {
+-		if (ctl->reqid != reqid)
+-			continue;
+-		if (ctl->done) {
+-			TAILQ_REMOVE(&sc->sc_bcdc_rxctlq, ctl, next);
+-			*len = ctl->len;
+-			free(ctl, M_TEMP, sizeof(*ctl));
+-			return 0;
+-		}
+-		if (timeout) {
+-			TAILQ_REMOVE(&sc->sc_bcdc_rxctlq, ctl, next);
+-			DPRINTF(("%s: timeout waiting for txctl response\n",
+-			    DEVNAME(sc)));
+-			free(ctl->buf, M_TEMP, ctl->len);
+-			free(ctl, M_TEMP, sizeof(*ctl));
+-			return 1;
+-		}
+-		break;
++	bwfm_pie_lock(sc);
++	while (ctl->done == 0 && !timeout)
++		timeout = bwfm_pie_sleep(sc, ctl, SEC_TO_NSEC(1));
++	TAILQ_REMOVE(&sc->sc_bcdc_rxctlq, ctl, next);
++	bwfm_pie_unlock(sc);
++
++	if (ctl->done > 0) {
++		*len = ctl->len;
++		free(ctl, M_TEMP, sizeof(*ctl));
++		return 0;
+ 	}
+-
+-	DPRINTF(("%s: did%s find txctl metadata (timeout %d)\n",
+-	    DEVNAME(sc), ctl == NULL ? " not": "", timeout));
++	DPRINTF(("%s: txctl response %s\n", DEVNAME(sc),
++	    ctl->done < 0 ? "of the wrong length" : "timed out"));
++	free(ctl->buf, M_TEMP, ctl->len);
++	free(ctl, M_TEMP, sizeof(*ctl));
+ 	return 1;
+ }
+ 
+@@ -1747,19 +1814,22 @@
+ 	dcmd->hdr.flags = letoh32(dcmd->hdr.flags);
+ 	dcmd->hdr.status = letoh32(dcmd->hdr.status);
+ 
++	bwfm_pie_lock(sc);
+ 	TAILQ_FOREACH_SAFE(ctl, &sc->sc_bcdc_rxctlq, next, tmp) {
+-		if (ctl->reqid != BWFM_BCDC_DCMD_ID_GET(dcmd->hdr.flags))
++		if (ctl->reqid != BWFM_BCDC_DCMD_ID_GET(dcmd->hdr.flags) ||
++		    ctl->done != 0)
+ 			continue;
+ 		if (ctl->len != len) {
+-			free(ctl->buf, M_TEMP, ctl->len);
+-			free(ctl, M_TEMP, sizeof(*ctl));
+-			return;
++			ctl->done = -1;
++			wakeup(ctl);
++			break;
+ 		}
+ 		memcpy(ctl->buf, buf, len);
+ 		ctl->done = 1;
+ 		wakeup(ctl);
+-		return;
++		break;
+ 	}
++	bwfm_pie_unlock(sc);
+ }
+ 
+ void
+@@ -2040,17 +2110,53 @@
+ 	bwfm_fwvar_var_set_int(sc, "mfp", BWFM_MFP_NONE);
+ 
+ 	if (ic->ic_des_esslen && ic->ic_des_esslen <= BWFM_MAX_SSID_LEN) {
++#ifdef PIE_PORT
++		params = malloc(sizeof(*params) + sizeof(uint32_t), M_TEMP,
++		    M_WAITOK | M_ZERO);
++#else
+ 		params = malloc(sizeof(*params), M_TEMP, M_WAITOK | M_ZERO);
++#endif
+ 		memcpy(params->ssid.ssid, ic->ic_des_essid, ic->ic_des_esslen);
+ 		params->ssid.len = htole32(ic->ic_des_esslen);
+ 		memcpy(params->assoc.bssid, ic->ic_bss->ni_bssid,
+ 		    sizeof(params->assoc.bssid));
++#ifdef PIE_PORT
++		params->scan.scan_type = BWFM_SCANTYPE_PASSIVE;
++		if (ic->ic_bss->ni_chan != IEEE80211_CHAN_ANYC) {
++			params->assoc.chanspec_num = htole32(1);
++			params->assoc.chanspec_list[0] =
++			    htole16(bwfm_chan2spec(sc, ic->ic_bss->ni_chan));
++		}
++#else
+ 		params->scan.scan_type = -1;
++#endif
+ 		params->scan.nprobes = htole32(-1);
+ 		params->scan.active_time = htole32(-1);
+ 		params->scan.passive_time = htole32(-1);
+ 		params->scan.home_time = htole32(-1);
++#ifdef PIE_PORT
++		if (bwfm_fwvar_var_set_data(sc, "join", params,
++		    sizeof(*params) + sizeof(uint32_t))) {
++#else
+ 		if (bwfm_fwvar_var_set_data(sc, "join", params, sizeof(*params))) {
++#endif
++#ifdef PIE_PORT
++			struct bwfm_join_params *join;
++			size_t joinlen = sizeof(*join) + sizeof(uint32_t);
++
++			join = malloc(joinlen, M_TEMP, M_WAITOK | M_ZERO);
++			memcpy(join->ssid.ssid, ic->ic_des_essid,
++			    ic->ic_des_esslen);
++			join->ssid.len = htole32(ic->ic_des_esslen);
++			memcpy(join->assoc.bssid, ic->ic_bss->ni_bssid,
++			    sizeof(join->assoc.bssid));
++			join->assoc.chanspec_num = params->assoc.chanspec_num;
++			join->assoc.chanspec_list[0] =
++			    params->assoc.chanspec_list[0];
++			bwfm_fwvar_cmd_set_data(sc, BWFM_C_SET_SSID, join,
++			    joinlen);
++			free(join, M_TEMP, joinlen);
++#else
+ 			struct bwfm_join_params join;
+ 			memset(&join, 0, sizeof(join));
+ 			memcpy(join.ssid.ssid, ic->ic_des_essid,
+@@ -2060,8 +2166,13 @@
+ 			    sizeof(join.assoc.bssid));
+ 			bwfm_fwvar_cmd_set_data(sc, BWFM_C_SET_SSID, &join,
+ 			    sizeof(join));
++#endif
+ 		}
++#ifdef PIE_PORT
++		free(params, M_TEMP, sizeof(*params) + sizeof(uint32_t));
++#else
+ 		free(params, M_TEMP, sizeof(*params));
++#endif
+ 	}
+ }
+ 
+@@ -2255,6 +2366,9 @@
+ void
+ bwfm_scan(struct bwfm_softc *sc)
+ {
++#ifdef PIE_PORT
++	sc->sc_ic.ic_flags &= ~IEEE80211_F_ASCAN;
++#endif
+ 	if (sc->sc_scan_ver == 0)
+ 		bwfm_scan_v0(sc);
+ 	else
+@@ -2665,6 +2779,14 @@
+ 		free(res, M_TEMP, reslen);
+ 		break;
+ 		}
++#ifdef PIE_PORT
++	case BWFM_E_SET_SSID:
++		if (ntohl(e->msg.status) != BWFM_E_STATUS_SUCCESS &&
++		    (ic->ic_state == IEEE80211_S_AUTH ||
++		    ic->ic_state == IEEE80211_S_ASSOC))
++			ieee80211_begin_scan(ifp);
++		break;
++#endif
+ 	case BWFM_E_AUTH:
+ 		if (ntohl(e->msg.status) != BWFM_E_STATUS_SUCCESS &&
+ 		    ic->ic_state == IEEE80211_S_AUTH)
+@@ -2897,11 +3019,28 @@
+ 
+ 	delay(100);
+ 
++#ifdef PIE_PORT
++	if (bwfm_fwvar_var_set_data(sc, "wsec_key", &key, sizeof(key)) ||
++	    bwfm_fwvar_var_get_int(sc, "wsec", &wsec)) {
++		bwfm_pie_key_failed(sc);
++		return;
++	}
++#else
+ 	bwfm_fwvar_var_set_data(sc, "wsec_key", &key, sizeof(key));
+ 	bwfm_fwvar_var_get_int(sc, "wsec", &wsec);
++#endif
+ 	wsec &= ~(BWFM_WSEC_WEP | BWFM_WSEC_TKIP | BWFM_WSEC_AES);
+ 	wsec |= wsec_enable;
++#ifdef PIE_PORT
++	if (bwfm_fwvar_var_set_int(sc, "wsec", wsec)) {
++		bwfm_pie_key_failed(sc);
++		return;
++	}
++	if (ic->ic_state != IEEE80211_S_RUN)
++		return;
++#else
+ 	bwfm_fwvar_var_set_int(sc, "wsec", wsec);
++#endif
+ 
+ 	if (wsec_enable != BWFM_WSEC_WEP && cmd->ni != NULL &&
+ 	    sc->sc_key_tasks == 0) {
+@@ -3012,6 +3151,12 @@
+ 	size_t count = 0, newsize, pad;
+ 	uint32_t token;
+ 	int skip = 0;
++#ifdef PIE_PORT
++	u_char mac[ETHER_ADDR_LEN];
++	int hasmac = node && OF_getprop(node, "local-mac-address",
++	    mac, sizeof(mac)) == sizeof(mac) &&
++	    (mac[0] | mac[1] | mac[2] | mac[3] | mac[4] | mac[5]) != 0;
++#endif
+ 
+ 	/*
+ 	 * Allocate a new buffer with enough space for the MAC
+@@ -3036,6 +3181,13 @@
+ 			skip = 1;
+ 			continue;
+ 		}
++#ifdef PIE_PORT
++		if (hasmac && count == 0 && end - src >= 8 &&
++		    memcmp(src, "macaddr=", 8) == 0) {
++			skip = 1;
++			continue;
++		}
++#endif
+ 		if (*src == '\r')
+ 			continue;
+ 		*dst++ = *src;
+@@ -3052,12 +3204,18 @@
+ 		char macaddr[32];
+ 
+ 		if (OF_getprop(node, "local-mac-address",
+-		    enaddr, sizeof(enaddr))) {
++		    enaddr, sizeof(enaddr)) == sizeof(enaddr) &&
++		    (enaddr[0] | enaddr[1] | enaddr[2] | enaddr[3] |
++		    enaddr[4] | enaddr[5]) != 0) {
+ 			snprintf(macaddr, sizeof(macaddr),
+ 			    "macaddr=%02x:%02x:%02x:%02x:%02x:%02x",
+ 			    enaddr[0], enaddr[1], enaddr[2], enaddr[3],
+ 			    enaddr[4], enaddr[5]);
++#ifdef PIE_PORT
++			if (dst > newbuf && dst[-1] != '\0')
++#else
+ 			if (*dst)
++#endif
+ 				*dst++ = '\0';
+ 			memcpy(dst, macaddr, strlen(macaddr));
+ 			dst += strlen(macaddr);
+@@ -3159,6 +3317,9 @@
+ 
+ 	*ucode = *nvram = NULL;
+ 	*size = *nvsize = *nvlen = 0;
++#ifdef PIE_PORT
++	bwfm_pie_free_blobs(sc);
++#endif
+ 
+ 	if (strlen(sc->sc_board_type) > 0)
+ 		board_type = sc->sc_board_type;
+--- a/src/openbsd-src/sys/dev/ic/bwfmvar.h
++++ b/src/openbsd-src/sys/dev/ic/bwfmvar.h
+@@ -15,6 +15,7 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-20: the softc points to PIE's own state. */
+ 
+ /* Chipcommon Core Chip IDs */
+ #define BRCM_CC_43143_CHIP_ID		43143
+@@ -158,6 +159,8 @@
+ 	TAILQ_ENTRY(bwfm_proto_bcdc_ctl) next;
+ };
+ 
++struct bwfm_pie;
++
+ struct bwfm_softc {
+ 	struct device		 sc_dev;
+ 	struct ieee80211com	 sc_ic;
+@@ -199,6 +202,7 @@
+ 	char			 sc_module[8];
+ 	char			 sc_vendor[8];
+ 	char			 sc_modrev[8];
++	struct bwfm_pie		*sc_pie;
+ };
+ 
+ void bwfm_attach(struct bwfm_softc *);
+--- a/src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.c
++++ b/src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.c
+@@ -15,33 +15,40 @@
+  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+  */
++/* Modified 2026-11-20: includes whose names xnu also has are quoted, to find PIE's headers. */
++/* Modified 2026-11-20: on PIE the card's functions and the bus claim come from PIE's SDIO interface, the bus work runs on PIE's bus thread, and the interrupt runs it with the claim held. */
++/* Modified 2026-11-20: on PIE event and data frames go to PIE80211Family's gate, and the transmit queue and control requests are kept under PIE's lock. */
++/* Modified 2026-11-20: on PIE no newline ends the attach line, as PIE prints no autoconf line before it. */
++/* Modified 2026-11-20: the chip's set-up is a function of its own, which on PIE runs again after a reset of the card. */
++/* Modified 2026-11-20: detach frees the transmit queue, and on PIE an attach that fails frees what it took. */
++/* Modified 2026-11-20: on PIE a function of its own sets the clocks for PIE's detach, which leaves the chip passive. */
+ 
+ #include "bpfilter.h"
+ 
+-#include <sys/param.h>
+-#include <sys/systm.h>
+-#include <sys/buf.h>
+-#include <sys/kernel.h>
+-#include <sys/malloc.h>
+-#include <sys/device.h>
+-#include <sys/queue.h>
+-#include <sys/socket.h>
+-#include <sys/pool.h>
++#include "sys/param.h"
++#include "sys/systm.h"
++#include "sys/buf.h"
++#include "sys/kernel.h"
++#include "sys/malloc.h"
++#include "sys/device.h"
++#include "sys/queue.h"
++#include "sys/socket.h"
++#include "sys/pool.h"
+ 
+ #if defined(__HAVE_FDT)
+-#include <machine/fdt.h>
+-#include <dev/ofw/openfirm.h>
++#include "machine/fdt.h"
++#include "dev/ofw/openfirm.h"
+ #endif
+ 
+ #if NBPFILTER > 0
+-#include <net/bpf.h>
++#include "net/bpf.h"
+ #endif
+-#include <net/if.h>
+-#include <net/if_dl.h>
+-#include <net/if_media.h>
++#include "net/if.h"
++#include "net/if_dl.h"
++#include "net/if_media.h"
+ 
+-#include <netinet/in.h>
+-#include <netinet/if_ether.h>
++#include "netinet/in.h"
++#include "netinet/if_ether.h"
+ 
+ #include <net80211/ieee80211_var.h>
+ 
+@@ -116,10 +123,12 @@
+ void		 bwfm_sdio_attach(struct device *, struct device *, void *);
+ int		 bwfm_sdio_preinit(struct bwfm_softc *);
+ int		 bwfm_sdio_detach(struct device *, int);
++int		 bwfm_sdio_setup(struct bwfm_sdio_softc *);
+ 
+ int		 bwfm_sdio_intr(void *);
+ int		 bwfm_sdio_oob_intr(void *);
+ void		 bwfm_sdio_task(void *);
++void		 bwfm_sdio_task_locked(struct bwfm_sdio_softc *);
+ int		 bwfm_sdio_load_microcode(struct bwfm_sdio_softc *,
+ 		    u_char *, size_t, u_char *, size_t);
+ 
+@@ -190,11 +199,16 @@
+ 
+ const struct cfattach bwfm_sdio_ca = {
+ 	sizeof(struct bwfm_sdio_softc),
++#ifdef PIE_PORT
++	NULL,
++#else
+ 	bwfm_sdio_match,
++#endif
+ 	bwfm_sdio_attach,
+ 	bwfm_sdio_detach,
+ };
+ 
++#ifndef PIE_PORT
+ int
+ bwfm_sdio_match(struct device *parent, void *match, void *aux)
+ {
+@@ -244,6 +258,7 @@
+ 
+ 	return 1;
+ }
++#endif
+ 
+ void
+ bwfm_sdio_attach(struct device *parent, struct device *self, void *aux)
+@@ -251,10 +266,10 @@
+ 	struct bwfm_sdio_softc *sc = (struct bwfm_sdio_softc *)self;
+ 	struct sdmmc_attach_args *saa = aux;
+ 	struct sdmmc_function *sf = saa->sf;
+-	struct bwfm_core *core;
+-	uint32_t reg;
+ 
++#ifndef PIE_PORT
+ 	printf("\n");
++#endif
+ 
+ #if defined(__HAVE_FDT)
+ 	if (sf->cookie)
+@@ -267,6 +282,14 @@
+ 	sc->sc_bounce_buf = dma_alloc(sc->sc_bounce_size, PR_WAITOK);
+ 	sc->sc_tx_seq = 0xff;
+ 
++#ifdef PIE_PORT
++	sc->sc_lock = bwfm_pie_sdio_lock(sf);
++	sc->sc_sf = bwfm_pie_sdio_functions(sf);
++	if (sc->sc_sf == NULL) {
++		printf("%s: no function 2\n", DEVNAME(sc));
++		goto err;
++	}
++#else
+ 	rw_assert_wrlock(&sf->sc->sc_lock);
+ 	sc->sc_lock = &sf->sc->sc_lock;
+ 
+@@ -278,6 +301,34 @@
+ 		sc->sc_sf[sf->number] = sf;
+ 	}
+ 	sf = saa->sf;
++#endif
++
++	if (bwfm_sdio_setup(sc) != 0)
++		goto err;
++
++	sc->sc_sc.sc_bus_ops = &bwfm_sdio_bus_ops;
++	sc->sc_sc.sc_proto_ops = &bwfm_proto_bcdc_ops;
++	bwfm_attach(&sc->sc_sc);
++	config_mountroot(self, bwfm_attachhook);
++	return;
++
++err:
++#ifdef PIE_PORT
++	bwfm_cleanup(&sc->sc_sc);
++	dma_free(sc->sc_bounce_buf, sc->sc_bounce_size);
++	sc->sc_bounce_buf = NULL;
++#endif
++	free(sc->sc_sf, M_DEVBUF, 0);
++#ifdef PIE_PORT
++	sc->sc_sf = NULL;
++#endif
++}
++
++int
++bwfm_sdio_setup(struct bwfm_sdio_softc *sc)
++{
++	struct bwfm_core *core;
++	uint32_t reg;
+ 
+ 	sdmmc_io_set_blocklen(sc->sc_sf[1], 64);
+ 	sdmmc_io_set_blocklen(sc->sc_sf[2], 512);
+@@ -285,7 +336,7 @@
+ 	/* Enable Function 1. */
+ 	if (sdmmc_io_function_enable(sc->sc_sf[1]) != 0) {
+ 		printf("%s: cannot enable function 1\n", DEVNAME(sc));
+-		goto err;
++		return 1;
+ 	}
+ 
+ 	DPRINTF(("%s: F1 signature read @0x18000000=%x\n", DEVNAME(sc),
+@@ -299,13 +350,13 @@
+ 	sc->sc_sc.sc_buscore_ops = &bwfm_sdio_buscore_ops;
+ 	if (bwfm_chip_attach(&sc->sc_sc) != 0) {
+ 		printf("%s: cannot attach chip\n", DEVNAME(sc));
+-		goto err;
++		return 1;
+ 	}
+ 
+ 	sc->sc_cc = bwfm_chip_get_core(&sc->sc_sc, BWFM_AGENT_CORE_CHIPCOMMON);
+ 	if (sc->sc_cc == NULL) {
+ 		printf("%s: cannot find chipcommon core\n", DEVNAME(sc));
+-		goto err;
++		return 1;
+ 	}
+ 
+ 	core = bwfm_chip_get_core(&sc->sc_sc, BWFM_AGENT_CORE_SDIO_DEV);
+@@ -333,15 +384,7 @@
+ 
+ 	bwfm_sdio_write_1(sc, BWFM_SDIO_FUNC1_CHIPCLKCSR, 0);
+ 	sc->sc_clkstate = CLK_SDONLY;
+-
+-	sc->sc_sc.sc_bus_ops = &bwfm_sdio_bus_ops;
+-	sc->sc_sc.sc_proto_ops = &bwfm_proto_bcdc_ops;
+-	bwfm_attach(&sc->sc_sc);
+-	config_mountroot(self, bwfm_attachhook);
+-	return;
+-
+-err:
+-	free(sc->sc_sf, M_DEVBUF, 0);
++	return 0;
+ }
+ 
+ int
+@@ -678,7 +721,11 @@
+ int
+ bwfm_sdio_intr(void *v)
+ {
++#ifdef PIE_PORT
++	bwfm_sdio_task_locked(v);
++#else
+ 	bwfm_sdio_task(v);
++#endif
+ 	return 1;
+ }
+ 
+@@ -690,7 +737,7 @@
+ 	if (!sc->sc_oob)
+ 		return 0;
+ 	fdt_intr_disable(sc->sc_ih);
+-	task_add(systq, &sc->sc_task);
++	bwfm_pie_bus_kick(&sc->sc_sc);
+ 	return 1;
+ }
+ #endif
+@@ -699,9 +746,22 @@
+ bwfm_sdio_task(void *v)
+ {
+ 	struct bwfm_sdio_softc *sc = (void *)v;
+-	uint32_t clkctl, devctl, intstat, hostint;
+ 
+ 	rw_enter_write(sc->sc_lock);
++	bwfm_sdio_task_locked(sc);
++	rw_exit(sc->sc_lock);
++
++#if defined(__HAVE_FDT)
++	if (sc->sc_oob)
++		fdt_intr_enable(sc->sc_ih);
++#endif
++}
++
++void
++bwfm_sdio_task_locked(struct bwfm_sdio_softc *sc)
++{
++	uint32_t clkctl, devctl, intstat, hostint;
++	int txq;
+ 
+ 	if (!sc->sc_sr_enabled && sc->sc_clkstate == CLK_PENDING) {
+ 		clkctl = bwfm_sdio_read_1(sc, BWFM_SDIO_FUNC1_CHIPCLKCSR);
+@@ -735,20 +795,16 @@
+ 		bwfm_sdio_rx_frames(sc);
+ 	}
+ 
+-	if (!ml_empty(&sc->sc_tx_queue)) {
++	bwfm_pie_lock(&sc->sc_sc);
++	txq = !ml_empty(&sc->sc_tx_queue);
++	bwfm_pie_unlock(&sc->sc_sc);
++	if (txq) {
+ 		bwfm_sdio_tx_frames(sc);
+ 	}
+ 
+ #ifdef BWFM_DEBUG
+ 	bwfm_sdio_debug_console(sc);
+ #endif
+-
+-	rw_exit(sc->sc_lock);
+-
+-#if defined(__HAVE_FDT)
+-	if (sc->sc_oob)
+-		fdt_intr_enable(sc->sc_ih);
+-#endif
+ }
+ 
+ int
+@@ -758,12 +814,42 @@
+ 
+ 	bwfm_detach(&sc->sc_sc, flags);
+ 
++	ml_purge(&sc->sc_tx_queue);
+ 	dma_free(sc->sc_bounce_buf, sc->sc_bounce_size);
+ 	free(sc->sc_sf, M_DEVBUF, 0);
+ 
+ 	return 0;
+ }
+ 
++#ifdef PIE_PORT
++int
++bwfm_sdio_pie_reset(struct bwfm_softc *bwfm)
++{
++	struct bwfm_sdio_softc *sc = (void *)bwfm;
++
++	bwfm_pie_lock(bwfm);
++	ml_purge(&sc->sc_tx_queue);
++	sc->sc_tx_count = 0;
++	bwfm_pie_unlock(bwfm);
++	sc->sc_initialized = 0;
++	sc->sc_bar0 = 0;
++	sc->sc_clkstate = CLK_NONE;
++	sc->sc_alp_only = 0;
++	sc->sc_sr_enabled = 0;
++	sc->sc_console_addr = 0;
++	sc->sc_tx_seq = 0xff;
++	sc->sc_tx_max_seq = 0;
++	bwfm_cleanup(bwfm);
++	return bwfm_sdio_setup(sc);
++}
++
++void
++bwfm_sdio_pie_clocks(struct bwfm_softc *bwfm, int on)
++{
++	bwfm_sdio_clkctl((void *)bwfm, on ? CLK_AVAIL : CLK_NONE, 0);
++}
++#endif
++
+ void
+ bwfm_sdio_backplane(struct bwfm_sdio_softc *sc, uint32_t bar0)
+ {
+@@ -1092,7 +1178,9 @@
+ 
+ 	i = min((uint8_t)(sc->sc_tx_max_seq - sc->sc_tx_seq), 32);
+ 	while (i--) {
++		bwfm_pie_lock(&sc->sc_sc);
+ 		m = ml_dequeue(&sc->sc_tx_queue);
++		bwfm_pie_unlock(&sc->sc_sc);
+ 		if (m == NULL)
+ 			break;
+ 
+@@ -1104,8 +1192,13 @@
+ 		m_freem(m);
+ 	}
+ 
++#ifdef PIE_PORT
++	if (sc->sc_tx_count < 64)
++		bwfm_pie_tx_restart(&sc->sc_sc);
++#else
+ 	if (sc->sc_tx_count < 64)
+ 		ifq_restart(&ifp->if_snd);
++#endif
+ }
+ 
+ void
+@@ -1191,7 +1284,9 @@
+ 	bwfm_sdio_frame_read_write(sc, sc->sc_bounce_buf,
+ 	    roundup(len, roundto), 1);
+ 
++	bwfm_pie_lock(&sc->sc_sc);
+ 	sc->sc_tx_count--;
++	bwfm_pie_unlock(&sc->sc_sc);
+ }
+ 
+ void
+@@ -1288,7 +1383,11 @@
+ 			}
+ 			m->m_len = m->m_pkthdr.len = flen - off;
+ 			memcpy(mtod(m, char *), data + off, flen - off);
++#ifdef PIE_PORT
++			bwfm_pie_rx_defer(&sc->sc_sc, m);
++#else
+ 			sc->sc_sc.sc_proto_ops->proto_rx(&sc->sc_sc, m, &ml);
++#endif
+ 			nextlen = swhdr->nextlen << 4;
+ 			break;
+ 		case BWFM_SDIO_SWHDR_CHANNEL_GLOM:
+@@ -1307,7 +1406,11 @@
+ 		}
+ 	}
+ 
++#ifdef PIE_PORT
++	ml_purge(&ml);
++#else
+ 	if_input(ifp, &ml);
++#endif
+ }
+ 
+ void
+@@ -1401,7 +1504,11 @@
+ 		case BWFM_SDIO_SWHDR_CHANNEL_EVENT:
+ 		case BWFM_SDIO_SWHDR_CHANNEL_DATA:
+ 			m_adj(m, swhdr.dataoff);
++#ifdef PIE_PORT
++			bwfm_pie_rx_defer(&sc->sc_sc, m);
++#else
+ 			sc->sc_sc.sc_proto_ops->proto_rx(&sc->sc_sc, m, ml);
++#endif
+ 			break;
+ 		case BWFM_SDIO_SWHDR_CHANNEL_GLOM:
+ 			printf("%s: glom not allowed in glom\n",
+@@ -1439,9 +1546,11 @@
+ 	if (sc->sc_tx_count >= 64)
+ 		return ENOBUFS;
+ 
++	bwfm_pie_lock(&sc->sc_sc);
+ 	sc->sc_tx_count++;
+ 	ml_enqueue(&sc->sc_tx_queue, m);
+-	task_add(systq, &sc->sc_task);
++	bwfm_pie_unlock(&sc->sc_sc);
++	bwfm_pie_bus_kick(&sc->sc_sc);
+ 	return 0;
+ }
+ 
+@@ -1467,9 +1576,11 @@
+ 	memcpy(mtod(m, char *), ctl->buf, ctl->len);
+ 	m->m_len = ctl->len;
+ 
++	bwfm_pie_lock(&sc->sc_sc);
+ 	TAILQ_INSERT_TAIL(&sc->sc_sc.sc_bcdc_rxctlq, ctl, next);
+ 	ml_enqueue(&sc->sc_tx_queue, m);
+-	task_add(systq, &sc->sc_task);
++	bwfm_pie_unlock(&sc->sc_sc);
++	bwfm_pie_bus_kick(&sc->sc_sc);
+ 	return 0;
+ 
+ fail:

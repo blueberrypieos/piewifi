@@ -1,0 +1,289 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: piewifi
+Source: https://github.com/blueberrypieos/piewifi
+ https://github.com/openbsd/src (commit 58ef3138855e39db066749e3b8e95b21b7471144, the 8.0 release, src/openbsd-src/)
+Files-Excluded: .github/*
+ src/*
+Files-Included:
+ src/openbsd-src/sys/crypto/aes.c
+ src/openbsd-src/sys/crypto/aes.h
+ src/openbsd-src/sys/crypto/arc4.h
+ src/openbsd-src/sys/crypto/cmac.c
+ src/openbsd-src/sys/crypto/cmac.h
+ src/openbsd-src/sys/crypto/hmac.c
+ src/openbsd-src/sys/crypto/hmac.h
+ src/openbsd-src/sys/crypto/key_wrap.c
+ src/openbsd-src/sys/crypto/key_wrap.h
+ src/openbsd-src/sys/crypto/md5.c
+ src/openbsd-src/sys/crypto/md5.h
+ src/openbsd-src/sys/crypto/sha1.c
+ src/openbsd-src/sys/crypto/sha1.h
+ src/openbsd-src/sys/crypto/sha2.c
+ src/openbsd-src/sys/crypto/sha2.h
+ src/openbsd-src/sys/dev/ic/bwfm.c
+ src/openbsd-src/sys/dev/ic/bwfmreg.h
+ src/openbsd-src/sys/dev/ic/bwfmvar.h
+ src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.c
+ src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.h
+ src/openbsd-src/sys/kern/subr_tree.c
+ src/openbsd-src/sys/net80211/ieee80211.c
+ src/openbsd-src/sys/net80211/ieee80211.h
+ src/openbsd-src/sys/net80211/ieee80211_crypto.c
+ src/openbsd-src/sys/net80211/ieee80211_crypto.h
+ src/openbsd-src/sys/net80211/ieee80211_crypto_ccmp.c
+ src/openbsd-src/sys/net80211/ieee80211_input.c
+ src/openbsd-src/sys/net80211/ieee80211_ioctl.h
+ src/openbsd-src/sys/net80211/ieee80211_node.c
+ src/openbsd-src/sys/net80211/ieee80211_node.h
+ src/openbsd-src/sys/net80211/ieee80211_output.c
+ src/openbsd-src/sys/net80211/ieee80211_pae_input.c
+ src/openbsd-src/sys/net80211/ieee80211_pae_output.c
+ src/openbsd-src/sys/net80211/ieee80211_priv.h
+ src/openbsd-src/sys/net80211/ieee80211_proto.c
+ src/openbsd-src/sys/net80211/ieee80211_proto.h
+ src/openbsd-src/sys/net80211/ieee80211_radiotap.h
+ src/openbsd-src/sys/net80211/ieee80211_var.h
+ src/openbsd-src/sys/sys/tree.h
+
+Files: *
+Copyright: 2026 The Blueberry Pie OS Authors
+License: BSD-2-Clause
+
+Files: patches/0001-openbsd-quoted-includes.patch
+Copyright: 2016 Thomas Pornin <pornin@bolet.org>
+ 2008 Damien Bergamini <damien.bergamini@free.fr>
+ 2000-2001 Aaron D. Gifford
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2001 Atsushi Onoe
+ 2007-2009 Damien Bergamini
+ 2008 Damien Bergamini
+ 2007-2008 Damien Bergamini <damien.bergamini@free.fr>
+ 2008-2009 Damien Bergamini
+ 2026 The Blueberry Pie OS Authors
+License: LicenseRef-BSD-3-Clause-author and LicenseRef-BSD-3-Clause-author-contributors and ISC and MIT and public-domain
+
+Files: patches/0002-net80211-hwdecrypt-leak.patch
+Copyright: 2007-2009 Damien Bergamini
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2001 Atsushi Onoe
+ 2026 The Blueberry Pie OS Authors
+License: LicenseRef-BSD-3-Clause-author
+
+Files: patches/0003-bwfm-on-pie.patch
+Copyright: 2010-2016 Broadcom Corporation
+ 2016-2017 Patrick Wildt <patrick@blueri.se>
+ 2026 The Blueberry Pie OS Authors
+License: ISC
+
+Files: src/openbsd-src/sys/crypto/aes.c
+Copyright: 2016 Thomas Pornin <pornin@bolet.org>
+License: MIT
+
+Files: src/openbsd-src/sys/crypto/aes.h
+Copyright: 2016 Mike Belopuhov
+ 2016 Thomas Pornin <pornin@bolet.org>
+License: MIT
+
+Files: src/openbsd-src/sys/crypto/arc4.h
+Copyright: 2003 Markus Friedl <markus@openbsd.org>
+License: ISC
+
+Files: src/openbsd-src/sys/crypto/cmac.c
+ src/openbsd-src/sys/crypto/cmac.h
+ src/openbsd-src/sys/crypto/hmac.c
+ src/openbsd-src/sys/crypto/hmac.h
+ src/openbsd-src/sys/crypto/key_wrap.c
+ src/openbsd-src/sys/crypto/key_wrap.h
+ src/openbsd-src/sys/net80211/ieee80211_crypto.c
+ src/openbsd-src/sys/net80211/ieee80211_crypto_ccmp.c
+ src/openbsd-src/sys/net80211/ieee80211_priv.h
+Copyright: 2008 Damien Bergamini <damien.bergamini@free.fr>
+License: ISC
+
+Files: src/openbsd-src/sys/crypto/md5.c
+ src/openbsd-src/sys/crypto/md5.h
+ src/openbsd-src/sys/crypto/sha1.c
+ src/openbsd-src/sys/crypto/sha1.h
+Copyright: none
+License: public-domain
+
+Files: src/openbsd-src/sys/crypto/sha2.c
+ src/openbsd-src/sys/crypto/sha2.h
+Copyright: 2000-2001 Aaron D. Gifford
+License: LicenseRef-BSD-3-Clause-author-contributors
+
+Files: src/openbsd-src/sys/dev/ic/bwfm.c
+ src/openbsd-src/sys/dev/ic/bwfmreg.h
+ src/openbsd-src/sys/dev/ic/bwfmvar.h
+ src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.c
+Copyright: 2010-2016 Broadcom Corporation
+ 2016-2017 Patrick Wildt <patrick@blueri.se>
+License: ISC
+
+Files: src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.h
+Copyright: 2010-2016 Broadcom Corporation
+ 2018 Patrick Wildt <patrick@blueri.se>
+License: ISC
+
+Files: src/openbsd-src/sys/kern/subr_tree.c
+Copyright: 2002 Niels Provos <provos@citi.umich.edu>
+ 2016 David Gwynne <dlg@openbsd.org>
+License: BSD-2-Clause and ISC
+
+Files: src/openbsd-src/sys/net80211/ieee80211.c
+ src/openbsd-src/sys/net80211/ieee80211_ioctl.h
+ src/openbsd-src/sys/net80211/ieee80211_node.h
+ src/openbsd-src/sys/net80211/ieee80211_proto.h
+ src/openbsd-src/sys/net80211/ieee80211_var.h
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+License: LicenseRef-BSD-3-Clause-author
+
+Files: src/openbsd-src/sys/net80211/ieee80211.h
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+License: BSD-2-Clause
+
+Files: src/openbsd-src/sys/net80211/ieee80211_crypto.h
+ src/openbsd-src/sys/net80211/ieee80211_pae_input.c
+ src/openbsd-src/sys/net80211/ieee80211_pae_output.c
+Copyright: 2007-2008 Damien Bergamini <damien.bergamini@free.fr>
+License: ISC
+
+Files: src/openbsd-src/sys/net80211/ieee80211_input.c
+ src/openbsd-src/sys/net80211/ieee80211_output.c
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2007-2009 Damien Bergamini
+License: LicenseRef-BSD-3-Clause-author
+
+Files: src/openbsd-src/sys/net80211/ieee80211_node.c
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2008 Damien Bergamini
+License: LicenseRef-BSD-3-Clause-author
+
+Files: src/openbsd-src/sys/net80211/ieee80211_proto.c
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2008-2009 Damien Bergamini
+License: LicenseRef-BSD-3-Clause-author
+
+Files: src/openbsd-src/sys/net80211/ieee80211_radiotap.h
+Copyright: 2003-2004 David Young
+License: BSD-2-Clause
+
+Files: src/openbsd-src/sys/sys/tree.h
+Copyright: 2002 Niels Provos <provos@citi.umich.edu>
+ 2016 David Gwynne <dlg@openbsd.org>
+License: ISC and BSD-2-Clause
+
+License: BSD-2-Clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+ .
+ 1. Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License: LicenseRef-BSD-3-Clause-author
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ 3. The name of the author may not be used to endorse or promote products
+    derived from this software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License: LicenseRef-BSD-3-Clause-author-contributors
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ 3. Neither the name of the copyright holder nor the names of contributors
+    may be used to endorse or promote products derived from this software
+    without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTOR(S) ``AS IS'' AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTOR(S) BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+License: ISC
+ Permission to use, copy, modify, and distribute this software for any
+ purpose with or without fee is hereby granted, provided that the above
+ copyright notice and this permission notice appear in all copies.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+License: MIT
+ Permission is hereby granted, free of charge, to any person obtaining
+ a copy of this software and associated documentation files (the
+ "Software"), to deal in the Software without restriction, including
+ without limitation the rights to use, copy, modify, merge, publish,
+ distribute, sublicense, and/or sell copies of the Software, and to
+ permit persons to whom the Software is furnished to do so, subject to
+ the following conditions:
+ .
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+ BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+
+License: public-domain
+ The files that name this licence are in the public domain. Each file's
+ notice states how its authors dedicated or released it.

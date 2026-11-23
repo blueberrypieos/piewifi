@@ -1,0 +1,21 @@
+Source: piewifi
+Section: net
+Priority: optional
+Maintainer: Maxwell <maxwell@blueberrypieos.com>
+Build-Depends: pietoolchain-host (>= 0.3.0), pietoolchain-sdk (>= 0.2.0),
+ blueberry-pie-os-kernel (>= 12377.121.6+pie8), blueberry-pie-os-kernel-dev (>= 12377.121.6+pie8)
+Standards-Version: 4.7.3
+Homepage: https://github.com/blueberrypieos/piewifi
+Vcs-Git: https://github.com/blueberrypieos/piewifi.git
+Vcs-Browser: https://github.com/blueberrypieos/piewifi
+Rules-Requires-Root: no
+
+Package: piewifi
+Architecture: darwin-arm64
+Depends: base-files (>= 8), blueberry-pie-os-kernel (>= 12377.121.6+pie8), kext-tools (>= 2),
+ openssl (>= 3.5.9), pie-firmware-brcm (>= 20261019+ds1-1), pie-firmware-brcm (<< 20261019+ds2~)
+Description: WiFi for the CYW43455 on SDIO
+ PIE80211Family.kext is OpenBSD's net80211 for a station, with open
+ networks and WPA2-PSK with CCMP. PIEbwfm.kext is OpenBSD's bwfm driver
+ for the CYW43455 of the Raspberry Pi 4 and 500. kextd loads the driver when
+ the chip's SDIO function appears, and PIE80211Family with it.
