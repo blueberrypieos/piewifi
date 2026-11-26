@@ -1,0 +1,14 @@
+The Realtek source files are pinned in PIErtw88/upstream.json.
+PIE selects their BSD-3-Clause alternative. The original files remain
+unmodified. The build checks their complete file set, revision, hashes
+and explicit licence alternatives before compiling.
+
+The installed licence scanner reports only GPL-2 for these dual-licensed
+headers. debian/lrc.config lists those audited originals and two source manifests.
+The source manifests trigger content-based scanner false positives.
+The build checks their fixed hashes.
+debian/check-source-notices rejects extra paths that could match the
+scanner's partial-path exclusions. Other source files remain checked.
+
+The regulatory database inputs are pinned separately. Their ISC licence
+and hashes are checked when the channel tables are generated.

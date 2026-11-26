@@ -1,0 +1,307 @@
+{
+  "upstream": "Linux",
+  "version": "v6.18",
+  "commit": "7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+  "selected_license": "BSD-3-Clause",
+  "files": [
+    {
+      "file": "fw.h",
+      "sha256": "45a1bf5213eec95cd450a54bc50caa5652c959dd2b644684ec7447b278f6e701",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "main.h",
+      "sha256": "32b81091aecfec48e4648cbbb3713524e904621e0eca0e00e3afb1ecee1fc741",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "reg.h",
+      "sha256": "c8246f9305539347fdb62b0294fe12ea24769cb3ad56c2b0235c4269a0307324",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "rtw8821c.c",
+      "sha256": "4948e0fd7baee48c1e817027f45ad0dfa32a6451ac9c080be4d68141ec0ab837",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "rtw8821c.h",
+      "sha256": "10a311ec1135e887d41bb0977c57375fd9b9a0707e3cda1f5eaa53d20eef97c1",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "rtw8821c_table.c",
+      "sha256": "ebc2547ddd66b7df434e0ef91319eddf5565c452863c4a0fd64660839d3e9a0c",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "rtw8821c_table.h",
+      "sha256": "4a22f6fb769d593568bdea6236d6eaf43b1c34b771f379f4d644df07ca8528c6",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "rx.h",
+      "sha256": "789e4fb6baecc2c6e7ac4d802d2ed2b32b799f47b3c37abd81daccdda1b13afa",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "sdio.h",
+      "sha256": "e405aa7e8a1f28784f3317a88154a843e4af07365f7eca66d9812e5298ffe77c",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "tx.h",
+      "sha256": "5f0c1dc2c8e9dbcdfece4e34c264bd24731ab6a3ff28011f9ddb09cb695aaa46",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "mac.h",
+      "sha256": "006c62b0d7b7a6dee95cc27172c0452bcfa6b05f80a1a91610c4750f42f4c91a",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "sec.h",
+      "sha256": "78d112a2f089487d4e2221b3217c36df0694b3db8e1147acaa53204ce10004a8",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "bf.h",
+      "sha256": "2b7ba252d5fa7e342e66e45edb8ba707dfa5481aacb7498a6f8c0f0897dc8584",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    },
+    {
+      "file": "phy.h",
+      "sha256": "97b97cf71837d156eb4a729aba70a2f17b04247f4d39d8ac884153c48d2da3c5",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause"
+    }
+  ],
+  "includes": {
+    "fw.h": [],
+    "main.h": [
+      "<net/mac80211.h>",
+      "<linux/vmalloc.h>",
+      "<linux/firmware.h>",
+      "<linux/average.h>",
+      "<linux/bitops.h>",
+      "<linux/bitfield.h>",
+      "<linux/iopoll.h>",
+      "<linux/interrupt.h>",
+      "<linux/workqueue.h>",
+      "\"util.h\"",
+      "\"hci.h\""
+    ],
+    "reg.h": [],
+    "rtw8821c.c": [
+      "\"main.h\"",
+      "\"coex.h\"",
+      "\"fw.h\"",
+      "\"tx.h\"",
+      "\"rx.h\"",
+      "\"phy.h\"",
+      "\"rtw8821c.h\"",
+      "\"rtw8821c_table.h\"",
+      "\"mac.h\"",
+      "\"reg.h\"",
+      "\"debug.h\"",
+      "\"bf.h\"",
+      "\"regd.h\""
+    ],
+    "rtw8821c.h": [
+      "<asm/byteorder.h>"
+    ],
+    "rtw8821c_table.c": [
+      "\"main.h\"",
+      "\"phy.h\"",
+      "\"rtw8821c_table.h\""
+    ],
+    "rtw8821c_table.h": [],
+    "rx.h": [],
+    "sdio.h": [],
+    "tx.h": [],
+    "bf.h": [],
+    "phy.h": [
+      "\"debug.h\""
+    ]
+  },
+  "external_dependency_policy": "External Linux/mac80211 headers and implementations are excluded from the PIE build.",
+  "build_boundary": "Native code compiles native interfaces and immutable chip tables. prepare.py extracts constants, hardware power sequences, and chip MAC/channel algorithms. No external Linux headers or implementations are compiled or copied.",
+  "native_origins": {
+    "rtw88_sdio.c": [
+      {
+        "file": "sdio.c",
+        "sha256": "b9ba37d4b671be4388443aeaf0dac58983172d014f465b6373061347abc30113",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/sdio.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      }
+    ],
+    "rtw88_wire.c": [
+      {
+        "file": "tx.c",
+        "sha256": "a4c4361d262a077b58b39452d3f4314deca5b098597983c7d6d08c8bf3b69154",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/tx.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "rx.c",
+        "sha256": "3f36d4eae7e4e14e6982314cb9e414b0488284d59cad4634afd1b40b88df2c7c",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/rx.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "rtw8821c.c",
+        "sha256": "4948e0fd7baee48c1e817027f45ad0dfa32a6451ac9c080be4d68141ec0ab837",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/rtw8821c.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "mac.c",
+        "sha256": "ec8a96ef305231f15af22bc94ad5708e0daf3bfb3ff470ec96757913e2be59f6",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/mac.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "efuse.c",
+        "sha256": "2120e85547a1f622a5248eeeffd96e068d552d326809bc64488b8c84b21daff5",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/efuse.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "sdio.c",
+        "sha256": "b9ba37d4b671be4388443aeaf0dac58983172d014f465b6373061347abc30113",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/sdio.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      }
+    ],
+    "rtw88_hw.c": [
+      {
+        "file": "mac.c",
+        "sha256": "ec8a96ef305231f15af22bc94ad5708e0daf3bfb3ff470ec96757913e2be59f6",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/mac.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "sec.c",
+        "sha256": "cad22a56ede19a42b3a29a260cdb8400ae901a19b34c86ad5dd173d2b6eebebc",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/sec.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "efuse.c",
+        "sha256": "2120e85547a1f622a5248eeeffd96e068d552d326809bc64488b8c84b21daff5",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/efuse.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "rtw8821c.c",
+        "sha256": "4948e0fd7baee48c1e817027f45ad0dfa32a6451ac9c080be4d68141ec0ab837",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/rtw8821c.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "mac80211.c",
+        "sha256": "c72a38098dddf4f4ae447bb60cd0c2a6842df250714bd58fa8be0aa0471bebcc",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/mac80211.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "sdio.c",
+        "sha256": "b9ba37d4b671be4388443aeaf0dac58983172d014f465b6373061347abc30113",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/sdio.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "fw.c",
+        "sha256": "dd3630169ed82d6bd9d7534104ef195df7f7121a7673612c990197d11cfc5260",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/fw.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      }
+    ],
+    "rtw88_phy.c": [
+      {
+        "file": "phy.c",
+        "sha256": "440c7b68fd2599cf7dc132d3ed7c4ae4b9386223c1b0a37cc3165e2574005c74",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/phy.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "rtw8821c.c",
+        "sha256": "4948e0fd7baee48c1e817027f45ad0dfa32a6451ac9c080be4d68141ec0ab837",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/rtw8821c.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "sar.c",
+        "sha256": "6a15b0892f45c41364309ba00d682f51326f6c22062b5a474a42a95a91b1a18d",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/sar.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "mac.c",
+        "sha256": "ec8a96ef305231f15af22bc94ad5708e0daf3bfb3ff470ec96757913e2be59f6",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/mac.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      }
+    ],
+    "rtw88_coex.c": [
+      {
+        "file": "coex.c",
+        "sha256": "3b7def2889fd75382b780437a8d0884f711efbde2961443ecdd6cd91f0353d42",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/coex.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "util.c",
+        "sha256": "9f83bd5eb6f98a5994ffc90f28e518df68fbb80cb5a7cef1fae1e0fc2f4c8110",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/util.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      },
+      {
+        "file": "rtw8821c.c",
+        "sha256": "4948e0fd7baee48c1e817027f45ad0dfa32a6451ac9c080be4d68141ec0ab837",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/rtw8821c.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      }
+    ],
+    "table_compat/main.h": [
+      {
+        "file": "phy.h",
+        "sha256": "97b97cf71837d156eb4a729aba70a2f17b04247f4d39d8ac884153c48d2da3c5",
+        "selected_license": "BSD-3-Clause",
+        "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/phy.h?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449"
+      }
+    ]
+  },
+  "license_file": {
+    "file": "BSD-3-Clause",
+    "sha256": "7a83b1aeb460458db9a4bd521d7f237c45b1650f6e60ea5ffc71e49472454de3"
+  },
+  "hardware_identity_references": [
+    {
+      "file": "rtw8821cs.c",
+      "sha256": "48577a89763fd562859de59ad6b4dc03944a49346e94a8f0722fcb1f0dae4ebc",
+      "license_expression": "GPL-2.0 OR BSD-3-Clause",
+      "selected_license": "BSD-3-Clause",
+      "copyright": "Martin Blumenstingl",
+      "source_url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/realtek/rtw88/rtw8821cs.c?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+      "vendor": 588,
+      "device": 51233,
+      "supported_function": 1,
+      "numeric_identifier_reference": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/mmc/sdio_ids.h?id=7d0a66e4bb9081d75c82ec4957c50034cb0ea449",
+      "reference_policy": "Only the numerical hardware identifier facts are used. No content from the identifier header is imported or compiled."
+    }
+  ]
+}

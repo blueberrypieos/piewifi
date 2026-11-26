@@ -33,7 +33,10 @@ struct m_tag {
 };
 
 struct pkthdr {
-	void *ph_cookie;
+	union {
+		void *ph_cookie;
+		uint64_t ph_key_generation;
+	};
 	int len;
 	uint32_t ph_rxflags;
 	uint32_t ph_tstamp;

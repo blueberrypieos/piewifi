@@ -8,6 +8,7 @@
 #include "crypto/aes.h"
 #include <crypto/key_wrap.h>
 #include <pie80211/driver.h>
+#include <pie80211/fullmac.h>
 #include <pie80211/family.h>
 #include <pie80211/ioctl.h>
 #include "host.h"
@@ -150,6 +151,20 @@ advance(u_int ms)
 	pump();
 }
 
+
+static void
+queue_keyed_rx(const uint8_t *b, size_t n, uint64_t generation)
+{
+	struct pie80211_drv_rx rx = {
+		.flags = PIE80211_DRV_RX_DECRYPTED | PIE80211_DRV_RX_KEY_GENERATION,
+		.freq = fk.st.freq,
+		.rssi = -40,
+		.key_generation = generation,
+	};
+
+	pie80211_drv_input(fk.d, pie80211_m_frombuf(b, n, 0), &rx);
+}
+
 static void
 inject(const uint8_t *b, size_t n, uint32_t flags)
 {
@@ -178,8 +193,9 @@ static size_t
 rates_ie(uint8_t *b)
 {
 	static const uint8_t r[] = { 1, 8, 0x82, 0x84, 0x8b, 0x96, 0x0c, 0x12, 0x18, 0x24 };
+	static const uint8_t a[] = { 1, 8, 0x8c, 0x12, 0x98, 0x24, 0xb0, 0x48, 0x60, 0x6c };
 
-	memcpy(b, r, sizeof(r));
+	memcpy(b, fk.st.freq >= 5000 ? a : r, sizeof(r));
 	return sizeof(r);
 }
 
@@ -238,13 +254,13 @@ drain_tx(void)
 }
 
 static int
-scan_to(const char *ssid, const uint8_t *rsn, size_t rsnlen)
+scan_to_at(const char *ssid, const uint8_t *rsn, size_t rsnlen, uint16_t freq, int channel)
 {
 	int i, beaconed = 0;
 
 	for (i = 0; i < 100 && fk.st.state != PIE80211_DRV_S_AUTH; i++) {
-		if (fk.st.state == PIE80211_DRV_S_SCAN && fk.st.freq == 2437 && !beaconed) {
-			beacon(ssid, 6, rsn, rsnlen);
+		if (fk.st.state == PIE80211_DRV_S_SCAN && fk.st.freq == freq && !beaconed) {
+			beacon(ssid, channel, rsn, rsnlen);
 			beaconed = 1;
 		}
 		advance(201);
@@ -252,13 +268,19 @@ scan_to(const char *ssid, const uint8_t *rsn, size_t rsnlen)
 	return fk.st.state == PIE80211_DRV_S_AUTH;
 }
 
+static int
+scan_to(const char *ssid, const uint8_t *rsn, size_t rsnlen)
+{
+	return scan_to_at(ssid, rsn, rsnlen, 2437, 6);
+}
+
 static void
-auth_and_assoc(void)
+auth_and_assoc_at(uint16_t freq)
 {
 	uint8_t b[128];
 	size_t n;
 
-	CHECK(fk.st.freq == 2437 && memcmp(fk.st.bssid, ap, 6) == 0);
+	CHECK(fk.st.freq == freq && memcmp(fk.st.bssid, ap, 6) == 0);
 	CHECK(tx_is(0xb0, ap));
 	n = hdr(b, 0xb0, 0, me, ap, ap);
 	memcpy(b + n, "\0\0\2\0\0\0", 6);
@@ -271,6 +293,12 @@ auth_and_assoc(void)
 	n += rates_ie(b + n);
 	inject(b, n, 0);
 	CHECK(fk.st.state == PIE80211_DRV_S_RUN && fk.st.aid == 1);
+}
+
+static void
+auth_and_assoc(void)
+{
+	auth_and_assoc_at(2437);
 }
 
 static struct pie80211_drv *
@@ -538,6 +566,7 @@ test_wpa2(void)
 	struct pie80211_status st;
 	uint8_t pmk[32], anonce[32], gtk[16], kd[48], wrapped[56], b[512], e[256], payload[20];
 	uint32_t cookie;
+	uint64_t old_generation;
 	size_t n;
 	int prot, i;
 	struct mbuf *m;
@@ -612,7 +641,19 @@ test_wpa2(void)
 	CHECK(fk.keys == 1 && fk.key.len == 16 && memcmp(fk.key.key, ptk.tk, 16) == 0 &&
 	    memcmp(fk.key.addr, ap, 6) == 0);
 	CHECK(link_up == 0);
-	pie80211_drv_key_done(fk.d, 0);
+	CHECK(fk.key.generation != 0);
+	old_generation = fk.key.generation;
+	pie80211_drv_key_done_generation(fk.d, old_generation, 0);
+	ic = (struct ieee80211com *)fk.d;
+	CHECK(ic->ic_set_key(ic, ic->ic_bss, &ic->ic_bss->ni_pairwise_key) == EBUSY);
+	CHECK(fk.key.generation != 0 && fk.key.generation != old_generation);
+	pump();
+	CHECK(link_up == 0);
+	pie80211_drv_key_done_generation(fk.d, old_generation, 0);
+	pump();
+	CHECK(link_up == 0);
+	pie80211_drv_key_done_generation(fk.d, fk.key.generation, 0);
+	pie80211_drv_key_done_generation(fk.d, old_generation, EIO);
 	pump();
 	CHECK(link_up == 1);
 	CHECK(pie80211_drv_ioctl(fk.d, PIE80211_CMD_STATUS, &st, sizeof(st)) == 0 &&
@@ -638,6 +679,24 @@ test_wpa2(void)
 	n = data_frame(b, me, peer, ETHERTYPE_IP, payload, sizeof(payload), 2);
 	memset(b + n, 0xee, IEEE80211_CCMP_MICLEN);
 	inject(b, n + IEEE80211_CCMP_MICLEN, PIE80211_DRV_RX_DECRYPTED);
+	CHECK(delivered(ETHERTYPE_IP, peer, payload, sizeof(payload)));
+
+	old_generation = fk.key.generation;
+	n = data_frame(b, me, peer, ETHERTYPE_IP, payload, sizeof(payload), 3);
+	memset(b + n, 0xee, IEEE80211_CCMP_MICLEN);
+	queue_keyed_rx(b, n + IEEE80211_CCMP_MICLEN, old_generation);
+	CHECK(ic->ic_set_key(ic, ic->ic_bss, &ic->ic_bss->ni_pairwise_key) == EBUSY);
+	pie80211_drv_key_done_generation(fk.d, fk.key.generation, 0);
+	pump();
+	CHECK(ml_dequeue(&up) == NULL);
+	queue_keyed_rx(b, n + IEEE80211_CCMP_MICLEN, old_generation);
+	pump();
+	CHECK(ml_dequeue(&up) == NULL);
+	queue_keyed_rx(b, n + IEEE80211_CCMP_MICLEN, 0);
+	pump();
+	CHECK(ml_dequeue(&up) == NULL);
+	queue_keyed_rx(b, n + IEEE80211_CCMP_MICLEN, fk.key.generation);
+	pump();
 	CHECK(delivered(ETHERTYPE_IP, peer, payload, sizeof(payload)));
 
 	memset(&gk, 0, sizeof(gk));
@@ -765,6 +824,223 @@ test_handshake_ended(void)
 	pie80211_drv_detach(fk.d);
 }
 
+static void
+check_handshake_timeout(uint32_t problem)
+{
+	struct pie80211_status st;
+	int i;
+
+	for (i = 0; i < 9; i++) {
+		advance(1000);
+		CHECK(fk.st.state == PIE80211_DRV_S_RUN && link_up == 0);
+	}
+	advance(999);
+	CHECK(fk.st.state == PIE80211_DRV_S_RUN && link_up == 0);
+	advance(1);
+	CHECK(fk.st.state != PIE80211_DRV_S_RUN);
+	CHECK(pie80211_drv_ioctl(fk.d, PIE80211_CMD_STATUS, &st, sizeof(st)) == 0 &&
+	    st.problem == problem && st.problem_ssid.len == 4 &&
+	    memcmp(st.problem_ssid.bytes, "Home", 4) == 0);
+}
+
+/*
+ * A WPA2 association whose port never opens: after ten seconds in RUN the station scans again. An open
+ * network stays.
+ */
+static void
+test_handshake_timeout(void)
+{
+	uint8_t pmk[32];
+	int i, phase;
+
+	memset(pmk, 0x21, sizeof(pmk));
+	for (phase = 0; phase < 2; phase++) {
+		attach_up();
+		join("Home", PIE80211_SEC_WPA2_PSK, pmk);
+		pie80211_drv_up(fk.d);
+		pump();
+		CHECK(scan_to("Home", rsn_ccmp, sizeof(rsn_ccmp)));
+		auth_and_assoc();
+		drain_tx();
+		if (phase)
+			advance(400);
+		check_handshake_timeout(PIE80211_PROBLEM_HANDSHAKE_TIMEOUT);
+		if (phase) {
+			struct pie80211_status st;
+			uint8_t b[64];
+			size_t n;
+
+			CHECK(scan_to("Home", rsn_ccmp, sizeof(rsn_ccmp)));
+			auth_and_assoc();
+			drain_tx();
+			n = hdr(b, 0xc0, 0, me, ap, ap);
+			b[n++] = 15;
+			b[n++] = 0;
+			inject(b, n, 0);
+			pump();
+			CHECK(pie80211_drv_ioctl(fk.d, PIE80211_CMD_STATUS, &st, sizeof(st)) == 0 &&
+			    st.problem == PIE80211_PROBLEM_HANDSHAKE);
+		}
+		pie80211_drv_down(fk.d);
+		drain_tx();
+		pie80211_drv_detach(fk.d);
+	}
+
+	attach_up();
+	join("Cafe", PIE80211_SEC_OPEN, NULL);
+	pie80211_drv_up(fk.d);
+	pump();
+	CHECK(scan_to("Cafe", NULL, 0));
+	auth_and_assoc();
+	drain_tx();
+	for (i = 0; i < 15; i++)
+		advance(1000);
+	CHECK(fk.st.state == PIE80211_DRV_S_RUN && link_up == 1);
+	pie80211_drv_down(fk.d);
+	drain_tx();
+	pie80211_drv_detach(fk.d);
+}
+
+static void
+test_handshake_timeout_reset(void)
+{
+	uint8_t pmk[32];
+	int i, reset;
+
+	memset(pmk, 0x21, sizeof(pmk));
+	for (reset = 0; reset < 4; reset++) {
+		attach_up();
+		join("Home", PIE80211_SEC_WPA2_PSK, pmk);
+		pie80211_drv_up(fk.d);
+		pump();
+		CHECK(scan_to("Home", rsn_ccmp, sizeof(rsn_ccmp)));
+		auth_and_assoc();
+		drain_tx();
+		for (i = 0; i < 9; i++)
+			advance(1000);
+		CHECK(fk.st.state == PIE80211_DRV_S_RUN && link_up == 0);
+		switch (reset) {
+		case 0:
+			ieee80211_new_state((struct ieee80211com *)fk.d, IEEE80211_S_SCAN, -1);
+			break;
+		case 1:
+			pie80211_drv_down(fk.d);
+			advance(1000);
+			pie80211_drv_up(fk.d);
+			break;
+		case 2:
+			pie80211_drv_restart(fk.d);
+			break;
+		case 3:
+			join("Home", PIE80211_SEC_WPA2_PSK, pmk);
+			break;
+		}
+		pump();
+		CHECK(scan_to("Home", rsn_ccmp, sizeof(rsn_ccmp)));
+		auth_and_assoc();
+		drain_tx();
+		check_handshake_timeout(PIE80211_PROBLEM_HANDSHAKE_TIMEOUT);
+		pie80211_drv_down(fk.d);
+		drain_tx();
+		pie80211_drv_detach(fk.d);
+	}
+}
+
+static void
+test_handshake_timeout_problem(void)
+{
+	static const uint32_t problems[] = {
+		PIE80211_PROBLEM_EAPOL_NOACK,
+		PIE80211_PROBLEM_KEY_INSTALL,
+	};
+	uint8_t pmk[32];
+	int i;
+
+	memset(pmk, 0x21, sizeof(pmk));
+	for (i = 0; i < (int)nitems(problems); i++) {
+		attach_up();
+		join("Home", PIE80211_SEC_WPA2_PSK, pmk);
+		pie80211_drv_up(fk.d);
+		pump();
+		CHECK(scan_to("Home", rsn_ccmp, sizeof(rsn_ccmp)));
+		auth_and_assoc();
+		drain_tx();
+		pie80211_drv_problem(fk.d, problems[i]);
+		check_handshake_timeout(problems[i]);
+		pie80211_drv_down(fk.d);
+		drain_tx();
+		pie80211_drv_detach(fk.d);
+	}
+}
+
+static void
+test_channel_refresh(void)
+{
+	struct pie80211_drv_chan channels[2] = {
+		{ 5180, PIE80211_DRV_CHAN_5GHZ },
+		{ 5180, PIE80211_DRV_CHAN_5GHZ }
+	};
+	struct pie80211_status st;
+	int started, wakes;
+
+	attach_up();
+	join("Cafe", PIE80211_SEC_OPEN, NULL);
+	CHECK(pie80211_drv_up(fk.d) == 0);
+	pump();
+	CHECK(scan_to("Cafe", NULL, 0));
+	auth_and_assoc();
+	CHECK(link_up == 1);
+	drain_tx();
+	CHECK(pie80211_drv_channels(NULL, channels, 1) == EINVAL);
+	CHECK(pie80211_drv_channels(fk.d, NULL, 1) == EINVAL);
+	CHECK(pie80211_drv_channels(fk.d, channels, 0) == EINVAL);
+	CHECK(pie80211_drv_channels(fk.d, channels, PIE80211_DRV_MAXCHAN + 1) == EINVAL);
+	CHECK(pie80211_drv_channels(fk.d, channels, 2) == EINVAL);
+	channels[1].freq = 5181;
+	CHECK(pie80211_drv_channels(fk.d, channels + 1, 1) == EINVAL);
+	channels[1].freq = 5180;
+	channels[1].flags |= PIE80211_DRV_CHAN_2GHZ;
+	CHECK(pie80211_drv_channels(fk.d, channels + 1, 1) == EINVAL);
+	channels[1].flags = 0x8000;
+	CHECK(pie80211_drv_channels(fk.d, channels + 1, 1) == EINVAL);
+	CHECK(link_up == 1 && fk.stopped == 0 && fk.started == 1);
+	CHECK(pie80211_drv_ioctl(fk.d, PIE80211_CMD_STATUS, &st, sizeof(st)) == 0 &&
+	    st.state == PIE80211_STATE_RUN && st.channel == 6);
+
+	wakes = tx_wakes;
+	pie80211_drv_tx_flow(fk.d, 1);
+	CHECK(pie80211_drv_tx_stopped(fk.d) == 1);
+	pie80211_drv_tx_done(fk.d, 123, 0);
+	CHECK(pie80211_drv_channels(fk.d, channels, 1) == 0);
+	pump();
+	CHECK(pie80211_drv_tx_stopped(fk.d) == 0 && tx_wakes == wakes + 1);
+	CHECK(link_up == 0 && fk.stopped == 1 && fk.started == 2);
+	CHECK(fk.st.state == PIE80211_DRV_S_SCAN && fk.st.freq == 5180);
+	advance(201);
+	CHECK(fk.st.state == PIE80211_DRV_S_SCAN && fk.st.freq == 5180);
+	CHECK(scan_to_at("Cafe", NULL, 0, 5180, 36));
+	auth_and_assoc_at(5180);
+	CHECK(link_up == 1);
+	CHECK(pie80211_drv_ioctl(fk.d, PIE80211_CMD_STATUS, &st, sizeof(st)) == 0 &&
+	    st.state == PIE80211_STATE_RUN && st.channel == 36 && st.problem == 0);
+	pie80211_drv_down(fk.d);
+	pump();
+	started = fk.started;
+	channels[0].freq = 2437;
+	channels[0].flags = PIE80211_DRV_CHAN_2GHZ;
+	CHECK(pie80211_drv_channels(fk.d, channels, 1) == 0);
+	pump();
+	CHECK(fk.started == started && link_up == 0);
+	CHECK(pie80211_drv_up(fk.d) == 0);
+	pump();
+	CHECK(scan_to("Cafe", NULL, 0));
+	auth_and_assoc();
+	CHECK(link_up == 1);
+	pie80211_drv_down(fk.d);
+	drain_tx();
+	pie80211_drv_detach(fk.d);
+}
+
 int
 main(void)
 {
@@ -772,7 +1048,11 @@ main(void)
 	test_tkip_group();
 	test_wpa2();
 	test_handshake_ended();
+	test_handshake_timeout();
 	test_card_reset();
+	test_handshake_timeout_reset();
+	test_handshake_timeout_problem();
+	test_channel_refresh();
 	ml_purge(&up);
 	return host_report("test_drv");
 }

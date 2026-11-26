@@ -13,6 +13,7 @@
 
 #define DRV_DWELL_MSEC		200
 #define DRV_RXQ_MAX		256
+#define DRV_PORT_SEC		10
 
 struct pie80211_drv {
 	struct ieee80211com d_ic;
@@ -31,6 +32,8 @@ struct pie80211_drv {
 	struct mbuf_list d_rxq;
 	struct ieee80211_key *d_hwkey;
 	struct ieee80211_key *d_keypend;
+	uint64_t d_key_generation;
+	uint64_t d_key_completed;
 	int d_key_error;
 	int d_start_error;
 	uint32_t d_problem;
@@ -39,6 +42,7 @@ struct pie80211_drv {
 	uint32_t d_tx_cookie;
 	int d_tx_full;
 	u_int d_eapol_lost;
+	uint64_t d_port_deadline;
 	struct timeout d_scan_to;
 	struct timeout d_wd_to;
 	struct task d_state_task;
@@ -53,6 +57,8 @@ struct pie80211_drv {
 	struct task d_txst_task;
 	struct task d_txwake_task;
 };
+
+void ieee80211_setbasicrates(struct ieee80211com *);
 
 static void drv_if_input(struct ifnet *, struct mbuf_list *);
 static void drv_if_link(struct ifnet *);
@@ -89,6 +95,7 @@ drv_problem(struct pie80211_drv *d, uint32_t problem, const struct ieee80211_nod
 		[PIE80211_PROBLEM_KEY_INSTALL] = "the driver could not install the key",
 		[PIE80211_PROBLEM_EAPOL_NOACK] = "the access point did not acknowledge a handshake frame",
 		[PIE80211_PROBLEM_HANDSHAKE] = "the network ended the WPA2 handshake: the passphrase may be wrong",
+		[PIE80211_PROBLEM_HANDSHAKE_TIMEOUT] = "the WPA2 handshake did not finish",
 	};
 	int same;
 
@@ -165,12 +172,27 @@ drv_refuse_bss(struct pie80211_drv *d)
 	return 1;
 }
 
+static uint64_t
+drv_next_key_generation(struct pie80211_drv *d)
+{
+	uint64_t generation;
+
+	pie80211_lock();
+	if (++d->d_key_generation == 0)
+		d->d_key_generation++;
+	generation = d->d_key_generation;
+	d->d_key_completed = 0;
+	pie80211_unlock();
+	return generation;
+}
+
 static void
 drv_drop_hwkey(struct pie80211_drv *d)
 {
 	struct ieee80211_key *k = d->d_hwkey != NULL ? d->d_hwkey : d->d_keypend;
 	struct pie80211_drv_key dk;
 
+	drv_next_key_generation(d);
 	if (k == NULL)
 		return;
 	memset(&dk, 0, sizeof(dk));
@@ -194,7 +216,8 @@ drv_check_handshake(struct pie80211_drv *d, struct ieee80211com *ic, enum ieee80
 
 	if (!d->d_rejoining && ic->ic_state == IEEE80211_S_RUN && nstate != IEEE80211_S_RUN &&
 	    nstate != IEEE80211_S_INIT && ISSET(ic->ic_flags, IEEE80211_F_RSNON) && ni != NULL &&
-	    !ni->ni_port_valid && d->d_problem == PIE80211_PROBLEM_NONE)
+	    !ni->ni_port_valid && (d->d_problem == PIE80211_PROBLEM_NONE ||
+	    (d->d_problem == PIE80211_PROBLEM_HANDSHAKE_TIMEOUT && d->d_port_deadline != 0)))
 		drv_problem(d, PIE80211_PROBLEM_HANDSHAKE, ni);
 }
 
@@ -206,6 +229,8 @@ drv_newstate(struct ieee80211com *ic, enum ieee80211_state nstate, int arg)
 	KASSERT(!ISSET(ic->ic_caps, IEEE80211_C_MFP));
 	drv_check_handshake(d, ic, nstate);
 	timeout_del(&d->d_scan_to);
+	if (nstate != IEEE80211_S_RUN)
+		d->d_port_deadline = 0;
 	if (ic->ic_state == IEEE80211_S_RUN && nstate != IEEE80211_S_RUN)
 		drv_drop_hwkey(d);
 	if (nstate == IEEE80211_S_SCAN)
@@ -227,6 +252,8 @@ drv_state_task(void *arg)
 {
 	struct pie80211_drv *d = arg;
 	struct ieee80211com *ic = &d->d_ic;
+	struct ieee80211_node *ni;
+	enum ieee80211_state ostate;
 
 	d->d_state_busy = 0;
 	if (d->d_state_again) {
@@ -235,7 +262,12 @@ drv_state_task(void *arg)
 	}
 	if (!ISSET(ic->ic_if.if_flags, IFF_RUNNING))
 		return;
+	ostate = ic->ic_state;
 	(void)d->d_newstate(ic, d->d_nstate, d->d_narg);
+	ni = ic->ic_bss;
+	if (ostate != IEEE80211_S_RUN && ic->ic_state == IEEE80211_S_RUN &&
+	    ISSET(ic->ic_flags, IEEE80211_F_RSNON) && ni != NULL && !ni->ni_port_valid)
+		d->d_port_deadline = pie80211_nsecuptime() + DRV_PORT_SEC * 1000000000ULL;
 	if (ic->ic_state == IEEE80211_S_SCAN && !d->d_state_busy)
 		timeout_add_msec(&d->d_scan_to, DRV_DWELL_MSEC);
 	if (ic->ic_state == IEEE80211_S_RUN && d->d_problem != PIE80211_PROBLEM_NONE &&
@@ -274,12 +306,28 @@ static void
 drv_watchdog(void *arg)
 {
 	struct pie80211_drv *d = arg;
-	struct ifnet *ifp = &d->d_ic.ic_if;
+	struct ieee80211com *ic = &d->d_ic;
+	struct ifnet *ifp = &ic->ic_if;
+	struct ieee80211_node *ni = ic->ic_bss;
 
 	if (!ISSET(ifp->if_flags, IFF_RUNNING))
 		return;
 	if (ifp->if_timer > 0 && --ifp->if_timer == 0)
 		ieee80211_watchdog(ifp);
+	if (ic->ic_state == IEEE80211_S_RUN && ISSET(ic->ic_flags, IEEE80211_F_RSNON) &&
+	    ni != NULL && !ni->ni_port_valid) {
+		if (d->d_port_deadline != 0 && pie80211_nsecuptime() >= d->d_port_deadline) {
+			d->d_port_deadline = 0;
+			if ((d->d_problem != PIE80211_PROBLEM_EAPOL_NOACK &&
+			    d->d_problem != PIE80211_PROBLEM_KEY_INSTALL) ||
+			    d->d_problem_len != ni->ni_esslen ||
+			    memcmp(d->d_problem_ssid, ni->ni_essid, ni->ni_esslen) != 0)
+				drv_problem(d, PIE80211_PROBLEM_HANDSHAKE_TIMEOUT, ni);
+			ieee80211_new_state(ic, IEEE80211_S_SCAN, -1);
+		}
+	} else {
+		d->d_port_deadline = 0;
+	}
 	timeout_add_sec(&d->d_wd_to, 1);
 }
 
@@ -302,6 +350,7 @@ drv_set_key(struct ieee80211com *ic, struct ieee80211_node *ni, struct ieee80211
 	memcpy(dk.key, k->k_key, dk.len);
 	dk.rsc = k->k_rsc[0];
 	dk.tsc = k->k_tsc;
+	dk.generation = drv_next_key_generation(d);
 	d->d_hwkey = NULL;
 	d->d_keypend = k;
 	d->d_ops->set_key(d->d_softc, &dk);
@@ -322,6 +371,7 @@ drv_delete_key(struct ieee80211com *ic, struct ieee80211_node *ni, struct ieee80
 	memset(&dk, 0, sizeof(dk));
 	if (ni != NULL)
 		memcpy(dk.addr, ni->ni_macaddr, sizeof(dk.addr));
+	drv_next_key_generation(d);
 	d->d_hwkey = d->d_keypend = NULL;
 	d->d_ops->delete_key(d->d_softc, &dk);
 	explicit_bzero(k, sizeof(*k));
@@ -334,11 +384,20 @@ drv_key_task(void *arg)
 	struct ieee80211com *ic = &d->d_ic;
 	struct ieee80211_node *ni = ic->ic_bss;
 	struct ieee80211_key *k = d->d_keypend;
+	int error;
 
+	pie80211_lock();
+	if (d->d_key_completed == 0 || d->d_key_completed != d->d_key_generation) {
+		pie80211_unlock();
+		return;
+	}
+	error = d->d_key_error;
+	d->d_key_completed = 0;
+	pie80211_unlock();
 	d->d_keypend = NULL;
 	if (k == NULL || ni == NULL || k != &ni->ni_pairwise_key || ic->ic_state != IEEE80211_S_RUN)
 		return;
-	if (d->d_key_error != 0) {
+	if (error != 0) {
 		drv_problem(d, PIE80211_PROBLEM_KEY_INSTALL, ni);
 		IEEE80211_SEND_MGMT(ic, ni, IEEE80211_FC0_SUBTYPE_DEAUTH, IEEE80211_REASON_AUTH_LEAVE);
 		ieee80211_new_state(ic, IEEE80211_S_SCAN, -1);
@@ -494,6 +553,14 @@ drv_rx_one(struct pie80211_drv *d, struct mbuf *m, struct mbuf_list *ml)
 	struct ieee80211_key *k;
 	int rssi, hdrlen;
 
+	if (ISSET(m->m_pkthdr.ph_rxflags, PIE80211_DRV_RX_DECRYPTED) &&
+	    ISSET(m->m_pkthdr.ph_rxflags, PIE80211_DRV_RX_KEY_GENERATION) &&
+	    (m->m_pkthdr.ph_key_generation == 0 ||
+	    m->m_pkthdr.ph_key_generation != d->d_key_generation)) {
+		ic->ic_stats.is_rx_wepfail++;
+		m_freem(m);
+		return;
+	}
 	if (m->m_pkthdr.len < (int)sizeof(struct ieee80211_frame_min)) {
 		ic->ic_stats.is_rx_tooshort++;
 		m_freem(m);
@@ -569,8 +636,10 @@ drv_if_link(struct ifnet *ifp)
 {
 	struct pie80211_drv *d = ifp->if_pie_arg;
 
-	if (ifp->if_link_state == LINK_STATE_UP)
+	if (ifp->if_link_state == LINK_STATE_UP) {
+		d->d_port_deadline = 0;
 		drv_problem(d, PIE80211_PROBLEM_NONE, NULL);
+	}
 	if (d->d_host.link != NULL)
 		d->d_host.link(d->d_host.ctx, ifp->if_link_state == LINK_STATE_UP,
 		    ifp->if_baudrate);
@@ -591,6 +660,7 @@ drv_start_task(void *arg)
 		return;
 	}
 	SET(ifp->if_flags, IFF_RUNNING);
+	pie80211_drv_tx_flow(d, 0);
 	timeout_add_sec(&d->d_wd_to, 1);
 	ieee80211_begin_scan(ifp);
 }
@@ -921,6 +991,98 @@ pie80211_drv_detach(struct pie80211_drv *d)
 	pie80211_gated(drv_detach_gated, d);
 }
 
+struct drv_channels_args {
+	struct pie80211_drv *d;
+	const struct pie80211_drv_chan *channels;
+	size_t nchan;
+	int error;
+};
+
+static void
+drv_channels_gated(void *arg)
+{
+	struct drv_channels_args *a = arg;
+	struct pie80211_drv *d = a->d;
+	struct ieee80211com *ic = d->d_icp;
+	uint8_t seen[howmany(IEEE80211_CHAN_MAX + 1, NBBY)] = { 0 };
+	u_int i, channel, flags;
+	int was_up;
+
+	a->error = EINVAL;
+	if (d->d_fmops != NULL) {
+		a->error = EOPNOTSUPP;
+		return;
+	}
+	if (a->channels == NULL || a->nchan == 0 || a->nchan > PIE80211_DRV_MAXCHAN)
+		return;
+	for (i = 0; i < a->nchan; i++) {
+		const struct pie80211_drv_chan *c = &a->channels[i];
+
+		if ((c->flags & ~(PIE80211_DRV_CHAN_2GHZ | PIE80211_DRV_CHAN_5GHZ |
+		    PIE80211_DRV_CHAN_PASSIVE)) != 0)
+			return;
+		flags = c->flags & (PIE80211_DRV_CHAN_2GHZ | PIE80211_DRV_CHAN_5GHZ);
+		if (flags != PIE80211_DRV_CHAN_2GHZ && flags != PIE80211_DRV_CHAN_5GHZ)
+			return;
+		flags = flags == PIE80211_DRV_CHAN_2GHZ ? IEEE80211_CHAN_2GHZ : IEEE80211_CHAN_5GHZ;
+		channel = ieee80211_mhz2ieee(c->freq, flags);
+		if (channel == 0 || channel > IEEE80211_CHAN_MAX || isset(seen, channel) ||
+		    ieee80211_ieee2mhz(channel, flags) != c->freq)
+			return;
+		setbit(seen, channel);
+	}
+	was_up = ISSET(ic->ic_if.if_flags, IFF_UP);
+	pie80211_drv_down(d);
+	task_del(systq, &d->d_state_task);
+	task_del(systq, &d->d_start_task);
+	task_del(systq, &d->d_rejoin_task);
+	task_del(systq, &d->d_restart_task);
+	task_del(systq, &d->d_lost_task);
+	task_del(systq, &d->d_refuse_task);
+	task_del(systq, &d->d_key_task);
+	task_del(systq, &d->d_txst_task);
+	task_del(systq, &d->d_txwake_task);
+	pie80211_lock();
+	d->d_eapol_lost = 0;
+	pie80211_unlock();
+	d->d_state_busy = d->d_state_again = 0;
+	ieee80211_free_allnodes(ic, 0);
+	memset(ic->ic_channels, 0, sizeof(ic->ic_channels));
+	ic->ic_modecaps = 0;
+	ic->ic_curmode = IEEE80211_MODE_AUTO;
+	ic->ic_ibss_chan = NULL;
+	if (ic->ic_bss != NULL)
+		ic->ic_bss->ni_chan = IEEE80211_CHAN_ANYC;
+	for (i = 0; i < a->nchan; i++) {
+		const struct pie80211_drv_chan *c = &a->channels[i];
+
+		flags = ISSET(c->flags, PIE80211_DRV_CHAN_5GHZ) ? IEEE80211_CHAN_A :
+		    IEEE80211_CHAN_B | IEEE80211_CHAN_G;
+		channel = ieee80211_mhz2ieee(c->freq, flags);
+		ic->ic_channels[channel].ic_freq = c->freq;
+		ic->ic_channels[channel].ic_flags = flags;
+		if (ISSET(c->flags, PIE80211_DRV_CHAN_PASSIVE))
+			SET(ic->ic_channels[channel].ic_flags, IEEE80211_CHAN_PASSIVE);
+	}
+	ic->ic_sup_rates[IEEE80211_MODE_11A] = ieee80211_std_rateset_11a;
+	ieee80211_channel_init(&ic->ic_if);
+	ieee80211_setbasicrates(ic);
+	(void)ieee80211_setmode(ic, IEEE80211_MODE_AUTO);
+	a->error = was_up ? pie80211_drv_up(d) : 0;
+}
+
+int
+pie80211_drv_channels(struct pie80211_drv *d, const struct pie80211_drv_chan *channels,
+    size_t nchan)
+{
+	struct drv_channels_args args = { d, channels, nchan, EINVAL };
+
+	if (d == NULL)
+		return EINVAL;
+	pie80211_gated(drv_channels_gated, &args);
+	return args.error;
+}
+
 const uint8_t *
 pie80211_drv_addr(struct pie80211_drv *d)
 {
@@ -959,6 +1121,7 @@ pie80211_drv_down(struct pie80211_drv *d)
 		drv_fm_down(d);
 		return;
 	}
+	d->d_port_deadline = 0;
 	if (!ISSET(ifp->if_flags, IFF_UP))
 		return;
 	CLR(ifp->if_flags, IFF_UP | IFF_RUNNING);
@@ -1073,12 +1236,30 @@ pie80211_drv_state_done(struct pie80211_drv *d)
 }
 
 void
+pie80211_drv_key_done_generation(struct pie80211_drv *d, uint64_t generation, int error)
+{
+	int queued = 0;
+
+	pie80211_lock();
+	if (generation != 0 && generation == d->d_key_generation) {
+		d->d_key_completed = generation;
+		d->d_key_error = error;
+		queued = 1;
+	}
+	pie80211_unlock();
+	if (queued)
+		task_add(systq, &d->d_key_task);
+}
+
+void
 pie80211_drv_key_done(struct pie80211_drv *d, int error)
 {
+	uint64_t generation;
+
 	pie80211_lock();
-	d->d_key_error = error;
+	generation = d->d_key_generation;
 	pie80211_unlock();
-	task_add(systq, &d->d_key_task);
+	pie80211_drv_key_done_generation(d, generation, error);
 }
 
 void
@@ -1087,6 +1268,8 @@ pie80211_drv_input(struct pie80211_drv *d, struct pie80211_mbuf *m, const struct
 	int queued = 0;
 
 	m->m_pkthdr.ph_rxflags = rx->flags;
+	m->m_pkthdr.ph_key_generation = ISSET(rx->flags, PIE80211_DRV_RX_KEY_GENERATION) ?
+	    rx->key_generation : 0;
 	m->m_pkthdr.ph_freq = rx->freq;
 	m->m_pkthdr.ph_rssi = rx->rssi;
 	m->m_pkthdr.ph_tstamp = rx->tstamp;

@@ -20,11 +20,15 @@
 all:
 	$(MAKE) -f PIE80211Family/Makefile
 	$(MAKE) -f PIEbwfm/Makefile
+	$(MAKE) -f PIErtw88/Makefile
 	$(MAKE) -f piewifi/Makefile
 
 check:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_source_notices.py'
 	$(MAKE) -f PIE80211Family/tests/Makefile
 	$(MAKE) -f PIEbwfm/tests/Makefile
+	$(MAKE) -f regulatory/Makefile check
+	$(MAKE) -f PIErtw88/tests/Makefile
 	$(MAKE) -f piewifi/Makefile check
 
 clean:

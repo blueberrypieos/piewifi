@@ -2,9 +2,60 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: piewifi
 Source: https://github.com/blueberrypieos/piewifi
  https://github.com/openbsd/src (commit 58ef3138855e39db066749e3b8e95b21b7471144, the 8.0 release, src/openbsd-src/)
-Files-Excluded: .github/*
- src/*
+ https://github.com/torvalds/linux/tree/7d0a66e4bb9081d75c82ec4957c50034cb0ea449
+ https://kernel.googlesource.com/pub/scm/linux/kernel/git/wens/wireless-regdb/+/c0b2d4b1b27a10479206b6a48445c0cdbabc1ff5/
+Files-Excluded: *
 Files-Included:
+ LICENSE
+ Makefile
+ PIE80211Family/Info.plist
+ PIE80211Family/Makefile
+ PIE80211Family/compat/*
+ PIE80211Family/glue/*
+ PIE80211Family/include/*
+ PIE80211Family/iokit/*
+ PIE80211Family/private/*
+ PIEbwfm/BWFMSDIO.cpp
+ PIEbwfm/Info.plist
+ PIEbwfm/Makefile
+ PIEbwfm/bwfm_pie.c
+ PIEbwfm/bwfm_pie.h
+ PIEbwfm/bwfm_pie_kext.h
+ PIEbwfm/bwfm_pie_os.h
+ PIEbwfm/bwfm_pie_priv.h
+ PIEbwfm/bwfm_pie_xnu.c
+ PIEbwfm/compat/*
+ PIErtw88/Info.plist
+ PIErtw88/Makefile
+ PIErtw88/RTW88SDIO.cpp
+ PIErtw88/prepare.py
+ PIErtw88/rtw88.h
+ PIErtw88/rtw88_coex.c
+ PIErtw88/rtw88_hw.c
+ PIErtw88/rtw88_os.h
+ PIErtw88/rtw88_phy.c
+ PIErtw88/rtw88_policy.c
+ PIErtw88/rtw88_pie.c
+ PIErtw88/rtw88_registers.h
+ PIErtw88/rtw88_sdio.c
+ PIErtw88/rtw88_wire.c
+ PIErtw88/rtw88_xnu.c
+ PIErtw88/source-notice-chip.txt
+ PIErtw88/source-notice-registers.txt
+ PIErtw88/table_compat/main.h
+ PIErtw88/table_compat/phy.h
+ PIErtw88/upstream.json
+ common.mk
+ man/*
+ patches/*
+ piewifi/Makefile
+ piewifi/netfile.c
+ piewifi/netfile.h
+ piewifi/pie-wifi.c
+ regulatory/generate.py
+ regulatory/rtw88_regulatory.c
+ regulatory/rtw88_regulatory.h
+ regulatory/upstream.json
  src/openbsd-src/sys/crypto/aes.c
  src/openbsd-src/sys/crypto/aes.h
  src/openbsd-src/sys/crypto/arc4.h
@@ -44,6 +95,23 @@ Files-Included:
  src/openbsd-src/sys/net80211/ieee80211_radiotap.h
  src/openbsd-src/sys/net80211/ieee80211_var.h
  src/openbsd-src/sys/sys/tree.h
+ src/rtw88/BSD-3-Clause
+ src/rtw88/bf.h
+ src/rtw88/fw.h
+ src/rtw88/mac.h
+ src/rtw88/main.h
+ src/rtw88/phy.h
+ src/rtw88/reg.h
+ src/rtw88/rtw8821c.c
+ src/rtw88/rtw8821c.h
+ src/rtw88/rtw8821c_table.c
+ src/rtw88/rtw8821c_table.h
+ src/rtw88/rx.h
+ src/rtw88/sdio.h
+ src/rtw88/sec.h
+ src/rtw88/tx.h
+ src/wireless-regdb/LICENSE
+ src/wireless-regdb/db.txt
 
 Files: *
 Copyright: 2026 The Blueberry Pie OS Authors
@@ -62,14 +130,19 @@ Copyright: 2016 Thomas Pornin <pornin@bolet.org>
  2026 The Blueberry Pie OS Authors
 License: LicenseRef-BSD-3-Clause-author and LicenseRef-BSD-3-Clause-author-contributors and ISC and MIT and public-domain
 
-Files: patches/0002-net80211-hwdecrypt-leak.patch
+Files: debian/build/obj/patched/sys/net80211/ieee80211_input.c
+ debian/build/obj/patched/sys/net80211/ieee80211_output.c
+ patches/0002-net80211-hwdecrypt-leak.patch
 Copyright: 2007-2009 Damien Bergamini
  2002-2003 Sam Leffler, Errno Consulting
  2001 Atsushi Onoe
  2026 The Blueberry Pie OS Authors
 License: LicenseRef-BSD-3-Clause-author
 
-Files: patches/0003-bwfm-on-pie.patch
+Files: debian/build/obj/patched/sys/dev/ic/bwfm.c
+ debian/build/obj/patched/sys/dev/ic/bwfmvar.h
+ debian/build/obj/patched/sys/dev/sdmmc/if_bwfm_sdio.c
+ patches/0003-bwfm-on-pie.patch
 Copyright: 2010-2016 Broadcom Corporation
  2016-2017 Patrick Wildt <patrick@blueri.se>
  2026 The Blueberry Pie OS Authors
@@ -79,16 +152,27 @@ Files: src/openbsd-src/sys/crypto/aes.c
 Copyright: 2016 Thomas Pornin <pornin@bolet.org>
 License: MIT
 
-Files: src/openbsd-src/sys/crypto/aes.h
+Files: debian/build/obj/patched/sys/crypto/aes.c
+Copyright: 2016 Thomas Pornin <pornin@bolet.org>
+ 2026 The Blueberry Pie OS Authors
+License: MIT
+
+Files: debian/build/obj/patched/sys/crypto/aes.h
+ src/openbsd-src/sys/crypto/aes.h
 Copyright: 2016 Mike Belopuhov
  2016 Thomas Pornin <pornin@bolet.org>
 License: MIT
 
-Files: src/openbsd-src/sys/crypto/arc4.h
+Files: debian/build/obj/patched/sys/crypto/arc4.h
+ src/openbsd-src/sys/crypto/arc4.h
 Copyright: 2003 Markus Friedl <markus@openbsd.org>
 License: ISC
 
-Files: src/openbsd-src/sys/crypto/cmac.c
+Files: debian/build/obj/patched/sys/crypto/cmac.h
+ debian/build/obj/patched/sys/crypto/hmac.h
+ debian/build/obj/patched/sys/crypto/key_wrap.h
+ debian/build/obj/patched/sys/net80211/ieee80211_priv.h
+ src/openbsd-src/sys/crypto/cmac.c
  src/openbsd-src/sys/crypto/cmac.h
  src/openbsd-src/sys/crypto/hmac.c
  src/openbsd-src/sys/crypto/hmac.h
@@ -100,19 +184,42 @@ Files: src/openbsd-src/sys/crypto/cmac.c
 Copyright: 2008 Damien Bergamini <damien.bergamini@free.fr>
 License: ISC
 
-Files: src/openbsd-src/sys/crypto/md5.c
+Files: debian/build/obj/patched/sys/crypto/cmac.c
+ debian/build/obj/patched/sys/crypto/hmac.c
+ debian/build/obj/patched/sys/crypto/key_wrap.c
+ debian/build/obj/patched/sys/net80211/ieee80211_crypto.c
+ debian/build/obj/patched/sys/net80211/ieee80211_crypto_ccmp.c
+Copyright: 2008 Damien Bergamini <damien.bergamini@free.fr>
+ 2026 The Blueberry Pie OS Authors
+License: ISC
+
+Files: debian/build/obj/patched/sys/crypto/md5.h
+ debian/build/obj/patched/sys/crypto/sha1.h
+ src/openbsd-src/sys/crypto/md5.c
  src/openbsd-src/sys/crypto/md5.h
  src/openbsd-src/sys/crypto/sha1.c
  src/openbsd-src/sys/crypto/sha1.h
 Copyright: none
 License: public-domain
 
-Files: src/openbsd-src/sys/crypto/sha2.c
+Files: debian/build/obj/patched/sys/crypto/md5.c
+ debian/build/obj/patched/sys/crypto/sha1.c
+Copyright: 2026 The Blueberry Pie OS Authors
+License: public-domain
+
+Files: debian/build/obj/patched/sys/crypto/sha2.h
+ src/openbsd-src/sys/crypto/sha2.c
  src/openbsd-src/sys/crypto/sha2.h
 Copyright: 2000-2001 Aaron D. Gifford
 License: LicenseRef-BSD-3-Clause-author-contributors
 
-Files: src/openbsd-src/sys/dev/ic/bwfm.c
+Files: debian/build/obj/patched/sys/crypto/sha2.c
+Copyright: 2000-2001 Aaron D. Gifford
+ 2026 The Blueberry Pie OS Authors
+License: LicenseRef-BSD-3-Clause-author-contributors
+
+Files: debian/build/obj/patched/sys/dev/ic/bwfmreg.h
+ src/openbsd-src/sys/dev/ic/bwfm.c
  src/openbsd-src/sys/dev/ic/bwfmreg.h
  src/openbsd-src/sys/dev/ic/bwfmvar.h
  src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.c
@@ -120,17 +227,29 @@ Copyright: 2010-2016 Broadcom Corporation
  2016-2017 Patrick Wildt <patrick@blueri.se>
 License: ISC
 
-Files: src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.h
+Files: debian/build/obj/patched/sys/dev/sdmmc/if_bwfm_sdio.h
+ src/openbsd-src/sys/dev/sdmmc/if_bwfm_sdio.h
 Copyright: 2010-2016 Broadcom Corporation
  2018 Patrick Wildt <patrick@blueri.se>
 License: ISC
 
-Files: src/openbsd-src/sys/kern/subr_tree.c
+Files: debian/build/obj/patched/sys/kern/subr_tree.c
+ src/openbsd-src/sys/kern/subr_tree.c
 Copyright: 2002 Niels Provos <provos@citi.umich.edu>
  2016 David Gwynne <dlg@openbsd.org>
 License: BSD-2-Clause and ISC
 
-Files: src/openbsd-src/sys/net80211/ieee80211.c
+Files: debian/build/obj/patched/sys/sys/tree.h
+ src/openbsd-src/sys/sys/tree.h
+Copyright: 2002 Niels Provos <provos@citi.umich.edu>
+ 2016 David Gwynne <dlg@openbsd.org>
+License: ISC and BSD-2-Clause
+
+Files: debian/build/obj/patched/sys/net80211/ieee80211_ioctl.h
+ debian/build/obj/patched/sys/net80211/ieee80211_node.h
+ debian/build/obj/patched/sys/net80211/ieee80211_proto.h
+ debian/build/obj/patched/sys/net80211/ieee80211_var.h
+ src/openbsd-src/sys/net80211/ieee80211.c
  src/openbsd-src/sys/net80211/ieee80211_ioctl.h
  src/openbsd-src/sys/net80211/ieee80211_node.h
  src/openbsd-src/sys/net80211/ieee80211_proto.h
@@ -139,15 +258,29 @@ Copyright: 2001 Atsushi Onoe
  2002-2003 Sam Leffler, Errno Consulting
 License: LicenseRef-BSD-3-Clause-author
 
-Files: src/openbsd-src/sys/net80211/ieee80211.h
+Files: debian/build/obj/patched/sys/net80211/ieee80211.c
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2026 The Blueberry Pie OS Authors
+License: LicenseRef-BSD-3-Clause-author
+
+Files: debian/build/obj/patched/sys/net80211/ieee80211.h
+ src/openbsd-src/sys/net80211/ieee80211.h
 Copyright: 2001 Atsushi Onoe
  2002-2003 Sam Leffler, Errno Consulting
 License: BSD-2-Clause
 
-Files: src/openbsd-src/sys/net80211/ieee80211_crypto.h
+Files: debian/build/obj/patched/sys/net80211/ieee80211_crypto.h
+ src/openbsd-src/sys/net80211/ieee80211_crypto.h
  src/openbsd-src/sys/net80211/ieee80211_pae_input.c
  src/openbsd-src/sys/net80211/ieee80211_pae_output.c
 Copyright: 2007-2008 Damien Bergamini <damien.bergamini@free.fr>
+License: ISC
+
+Files: debian/build/obj/patched/sys/net80211/ieee80211_pae_input.c
+ debian/build/obj/patched/sys/net80211/ieee80211_pae_output.c
+Copyright: 2007-2008 Damien Bergamini <damien.bergamini@free.fr>
+ 2026 The Blueberry Pie OS Authors
 License: ISC
 
 Files: src/openbsd-src/sys/net80211/ieee80211_input.c
@@ -163,20 +296,91 @@ Copyright: 2001 Atsushi Onoe
  2008 Damien Bergamini
 License: LicenseRef-BSD-3-Clause-author
 
+Files: debian/build/obj/patched/sys/net80211/ieee80211_node.c
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2008 Damien Bergamini
+ 2026 The Blueberry Pie OS Authors
+License: LicenseRef-BSD-3-Clause-author
+
 Files: src/openbsd-src/sys/net80211/ieee80211_proto.c
 Copyright: 2001 Atsushi Onoe
  2002-2003 Sam Leffler, Errno Consulting
  2008-2009 Damien Bergamini
 License: LicenseRef-BSD-3-Clause-author
 
-Files: src/openbsd-src/sys/net80211/ieee80211_radiotap.h
+Files: debian/build/obj/patched/sys/net80211/ieee80211_proto.c
+Copyright: 2001 Atsushi Onoe
+ 2002-2003 Sam Leffler, Errno Consulting
+ 2008-2009 Damien Bergamini
+ 2026 The Blueberry Pie OS Authors
+License: LicenseRef-BSD-3-Clause-author
+
+Files: debian/build/obj/patched/sys/net80211/ieee80211_radiotap.h
+ src/openbsd-src/sys/net80211/ieee80211_radiotap.h
 Copyright: 2003-2004 David Young
 License: BSD-2-Clause
 
-Files: src/openbsd-src/sys/sys/tree.h
-Copyright: 2002 Niels Provos <provos@citi.umich.edu>
- 2016 David Gwynne <dlg@openbsd.org>
-License: ISC and BSD-2-Clause
+Files: debian/build/obj/rtw88-generated/rtw8821c_table.c
+ debian/build/obj/rtw88-generated/rtw8821c_table.h
+ src/rtw88/bf.h
+ src/rtw88/fw.h
+ src/rtw88/mac.h
+ src/rtw88/main.h
+ src/rtw88/phy.h
+ src/rtw88/reg.h
+ src/rtw88/rtw8821c.c
+ src/rtw88/rtw8821c.h
+ src/rtw88/rtw8821c_table.c
+ src/rtw88/rtw8821c_table.h
+ src/rtw88/rx.h
+ src/rtw88/sec.h
+ src/rtw88/tx.h
+Copyright: 2018-2019 Realtek Corporation
+License: BSD-3-Clause
+
+Files: PIErtw88/rtw88_coex.c
+ PIErtw88/source-notice-chip.txt
+ PIErtw88/table_compat/main.h
+ debian/build/obj/rtw88-generated/rtw88_channel.inc
+ debian/build/obj/rtw88-generated/rtw88_mac.inc
+ debian/build/obj/rtw88-generated/rtw88_power.inc
+Copyright: 2018-2019 Realtek Corporation
+ 2026 The Blueberry Pie OS Authors
+License: BSD-3-Clause
+
+Files: PIErtw88/rtw88_hw.c
+ PIErtw88/rtw88_sdio.c
+ PIErtw88/rtw88_wire.c
+ PIErtw88/source-notice-registers.txt
+ debian/build/obj/rtw88-generated/rtw88_regs.inc
+Copyright: 2018-2019 Realtek Corporation
+ 2021 Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+ 2021 Jernej Skrabec <jernej.skrabec@gmail.com>
+ 2026 The Blueberry Pie OS Authors
+License: BSD-3-Clause
+
+Files: PIErtw88/rtw88_phy.c
+Copyright: 2018-2021 Realtek Corporation
+ 2026 The Blueberry Pie OS Authors
+License: BSD-3-Clause
+
+Files: src/rtw88/sdio.h
+Copyright: 2021 Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+ 2021 Jernej Skrabec <jernej.skrabec@gmail.com>
+License: BSD-3-Clause
+
+Files: src/rtw88/BSD-3-Clause
+Copyright: none
+License: BSD-3-Clause
+
+Files: debian/build/obj/rtw88-regulatory/rtw88_regulatory_data.h
+ src/wireless-regdb/LICENSE
+ src/wireless-regdb/db.txt
+Copyright: 2008 Luis R. Rodriguez <mcgrof@gmail.com>
+ 2008 Johannes Berg <johannes@sipsolutions.net>
+ 2008 Michael Green <Michael.Green@Atheros.com>
+License: ISC
 
 License: BSD-2-Clause
  Redistribution and use in source and binary forms, with or without
@@ -287,3 +491,30 @@ License: MIT
 License: public-domain
  The files that name this licence are in the public domain. Each file's
  notice states how its authors dedicated or released it.
+
+License: BSD-3-Clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+ .
+ 1. Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ .
+ 3. Neither the name of the copyright holder nor the names of its
+    contributors may be used to endorse or promote products derived from this
+    software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ POSSIBILITY OF SUCH DAMAGE.

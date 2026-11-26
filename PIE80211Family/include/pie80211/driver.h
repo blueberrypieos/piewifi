@@ -11,7 +11,8 @@
  * the functions from pie80211_drv_attach() to pie80211_drv_restart() from
  * any thread outside the gate, never from a primary interrupt or filter,
  * and none of them after pie80211_drv_detach(). Attach and detach enter
- * the gate themselves.
+ * the gate themselves. pie80211_drv_tx_done() and pie80211_drv_tx_flow()
+ * may also be called by tx and set_country in the family gate.
  *
  * The controller calls pie80211_drv_set_host(), _up(), _down(), _output(),
  * _ioctl() and _tx_stopped() in the gate. pie80211_drv_cmdinfo() gives a
@@ -104,6 +105,7 @@ struct pie80211_drv_key {
 	uint8_t key[16];
 	uint64_t rsc;
 	uint64_t tsc;
+	uint64_t generation;
 };
 
 struct pie80211_drv_edca {
@@ -127,12 +129,14 @@ struct pie80211_drv_tx {
 };
 
 #define PIE80211_DRV_RX_DECRYPTED	0x0001
+#define PIE80211_DRV_RX_KEY_GENERATION	0x0002
 
 struct pie80211_drv_rx {
 	uint32_t flags;
 	uint16_t freq;
 	int8_t rssi;
 	uint32_t tstamp;
+	uint64_t key_generation;
 };
 
 struct pie80211_drv_ops {
@@ -149,9 +153,14 @@ struct pie80211_drv_ops {
 struct pie80211_drv *pie80211_drv_attach(const struct pie80211_drv_desc *desc,
     const struct pie80211_drv_ops *ops, void *softc, int *error);
 void pie80211_drv_detach(struct pie80211_drv *d);
+/* usage: quiesce driver callbacks, then call outside the family gate. */
+int pie80211_drv_channels(struct pie80211_drv *d, const struct pie80211_drv_chan *channels,
+    size_t nchan);
 void pie80211_drv_started(struct pie80211_drv *d, int error);
 void pie80211_drv_state_done(struct pie80211_drv *d);
 void pie80211_drv_key_done(struct pie80211_drv *d, int error);
+/* usage: complete the generation supplied to set_key. */
+void pie80211_drv_key_done_generation(struct pie80211_drv *d, uint64_t generation, int error);
 void pie80211_drv_input(struct pie80211_drv *d, struct pie80211_mbuf *m,
     const struct pie80211_drv_rx *rx);
 void pie80211_drv_tx_done(struct pie80211_drv *d, uint32_t cookie, int acked);

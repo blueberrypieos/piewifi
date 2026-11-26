@@ -1,0 +1,10 @@
+{
+  "name": "wireless-regdb",
+  "repository": "https://git.kernel.org/pub/scm/linux/kernel/git/wens/wireless-regdb.git",
+  "revision": "c0b2d4b1b27a10479206b6a48445c0cdbabc1ff5",
+  "license": "ISC",
+  "files": {
+    "db.txt": "57e784adcc824f6807f1d97f87f8db5a4a26c5e39bf469e7c9f75fa6f76acaa7",
+    "LICENSE": "678b0df753c86198fc496d1f1033429bbd57f101472132ee7eaaf9f5e0a7fae1"
+  }
+}

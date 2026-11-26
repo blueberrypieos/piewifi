@@ -5,6 +5,16 @@
 #include <pie80211/compat.h>
 #include "host.h"
 
+_Static_assert(sizeof(struct pkthdr) == 24, "packet header ABI");
+_Static_assert(offsetof(struct pkthdr, len) == 8, "packet length ABI");
+_Static_assert(offsetof(struct pkthdr, ph_rxflags) == 12, "packet flags ABI");
+_Static_assert(offsetof(struct pkthdr, ph_tstamp) == 16, "packet timestamp ABI");
+_Static_assert(offsetof(struct pkthdr, ph_freq) == 20, "packet frequency ABI");
+_Static_assert(offsetof(struct pkthdr, ph_rssi) == 22, "packet RSSI ABI");
+_Static_assert(offsetof(struct mbuf, m_pkthdr) == 40, "mbuf header ABI");
+_Static_assert(offsetof(struct mbuf, m_ext) == 64, "mbuf external storage ABI");
+_Static_assert(offsetof(struct mbuf, m_dat) == 80, "mbuf inline storage ABI");
+
 static uint8_t pattern[PIE80211_MAXEXT + 64];
 static uint8_t scratch[PIE80211_MAXEXT + 64];
 

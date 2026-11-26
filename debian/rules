@@ -7,10 +7,12 @@ include /usr/share/pietoolchain/rules.mk
 EXT := Library/Extensions
 
 install:
+	python3 debian/check-source-notices
 	$(MAKE) -C $(SRCROOT) -j$(JOBS) PIETOOLCHAIN=/usr/lib/pietoolchain PIE_SDK=$(SDK) \
 		KERNEL_DEV=$(PIE_CROSS_ROOT) O=$(OBJ) all
 	install -d $(ROOT)/$(EXT) $(ROOT)/usr/sbin
-	cp -R $(OBJ)/PIE80211Family/PIE80211Family.kext $(OBJ)/PIEbwfm/PIEbwfm.kext $(ROOT)/$(EXT)/
+	cp -R $(OBJ)/PIE80211Family/PIE80211Family.kext $(OBJ)/PIEbwfm/PIEbwfm.kext \
+		$(OBJ)/PIErtw88/PIErtw88.kext $(ROOT)/$(EXT)/
 	install -m 755 $(OBJ)/piewifi/pie-wifi $(ROOT)/usr/sbin/pie-wifi
 	install -D -m 644 man/pie-wifi.8 $(ROOT)/usr/share/man/man8/pie-wifi.8
 

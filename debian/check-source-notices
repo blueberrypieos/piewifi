@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 The Blueberry Pie OS Authors
+# usage: python3 debian/check-source-notices [SOURCE]
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+
+PIN = '7d0a66e4bb9081d75c82ec4957c50034cb0ea449'
+EXPRESSION = 'GPL-2.0 OR BSD-3-Clause'
+LICENSE_SHA256 = '7a83b1aeb460458db9a4bd521d7f237c45b1650f6e60ea5ffc71e49472454de3'
+AUDIT_SHA256 = {
+    'PIErtw88/upstream.json': '85f3ba2dd90724664f33258b273010733eb9a64270939544d863a2405998403a',
+    'regulatory/upstream.json': '23217c5f6a6efc0a9eb182971764ef850c2ea3a291d73188c1f3efbae69ebbd1',
+}
+ALIASES = {
+    'BSD-2-Clause and ISC | BSD-2-clause and/or ISC',
+    'ISC and BSD-2-Clause | BSD-2-clause',
+    'LicenseRef-BSD-3-Clause-author | BSD-3-clause',
+    'LicenseRef-BSD-3-Clause-author-contributors | BSD-3-clause',
+}
+
+
+def check(root):
+    root = Path(root).resolve()
+    for name, digest in AUDIT_SHA256.items():
+        if hashlib.sha256((root / name).read_bytes()).hexdigest() != digest:
+            raise ValueError('the audited source metadata changed: ' + name)
+    manifest = json.loads((root / 'PIErtw88/upstream.json').read_text())
+    if manifest['commit'] != PIN or manifest['selected_license'] != 'BSD-3-Clause':
+        raise ValueError('the Realtek source pin or selected licence changed')
+    licence = manifest['license_file']
+    if licence != {'file': 'BSD-3-Clause', 'sha256': LICENSE_SHA256}:
+        raise ValueError('the upstream BSD licence pin changed')
+    if hashlib.sha256((root / 'src/rtw88/BSD-3-Clause').read_bytes()).hexdigest() != LICENSE_SHA256:
+        raise ValueError('the upstream BSD licence text changed')
+    entries = manifest['files']
+    names = [entry['file'] for entry in entries]
+    if len(names) != len(set(names)) or any(Path(name).name != name for name in names):
+        raise ValueError('invalid Realtek source file set')
+    expected = set(names) | {'BSD-3-Clause'}
+    actual = {p.relative_to(root / 'src/rtw88').as_posix()
+              for p in (root / 'src/rtw88').rglob('*') if p.is_file()}
+    if actual != expected:
+        raise ValueError('the vendored Realtek source file set changed')
+    paths = {'src/rtw88/' + name for name in names} | set(AUDIT_SHA256)
+    for entry in entries:
+        data = (root / 'src/rtw88' / entry['file']).read_bytes()
+        first = data.splitlines()[0].decode()
+        if hashlib.sha256(data).hexdigest() != entry['sha256']:
+            raise ValueError('Realtek upstream checksum mismatch: ' + entry['file'])
+        if entry['selected_license'] != 'BSD-3-Clause' or 'SPDX-License-Identifier:' not in first:
+            raise ValueError('the selected BSD alternative is missing: ' + entry['file'])
+        if first.split('SPDX-License-Identifier:', 1)[1].replace('*/', '').strip() != EXPRESSION:
+            raise ValueError('the upstream BSD alternative changed: ' + entry['file'])
+    exclusions = set()
+    for original in (root / 'debian/lrc.config').read_text().splitlines():
+        line = original.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '|' in line:
+            if line not in ALIASES:
+                raise ValueError('unreviewed licence-scanner alias: ' + line)
+        elif line.startswith('-'):
+            raise ValueError('unexpected licence-scanner option: ' + line)
+        else:
+            exclusions.add(line)
+    if exclusions != paths:
+        raise ValueError('licence-scanner exclusions do not match the audited originals')
+    folded = {path.casefold(): path for path in paths}
+    checkout = (root / '.git').exists()
+    for directory, subdirs, files in os.walk(root, followlinks=False):
+        subdirs[:] = [name for name in subdirs
+                      if (Path(directory) / name).relative_to(root).as_posix()
+                      not in {'.git', '.pc', 'build', 'debian/.debhelper', 'debian/build'}
+                      and not (checkout and (Path(directory) / name / '.git').is_file())]
+        for name in files:
+            relative = (Path(directory) / name).relative_to(root).as_posix()
+            for pattern, exact in folded.items():
+                if pattern in relative.casefold() and relative != exact:
+                    raise ValueError('ambiguous licence-scanner exclusion: ' + relative)
+    return len(names)
+
+
+def main():
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
+    try:
+        count = check(root)
+    except (OSError, ValueError, KeyError, IndexError) as error:
+        raise SystemExit('source notice check failed: ' + str(error)) from error
+    print('source notice check: %d pinned originals use the BSD alternative' % count)
+
+
+if __name__ == '__main__':
+    main()

@@ -292,17 +292,28 @@ UInt32
 PIE80211Controller::outputPacket(mbuf_t m, void *param)
 {
 	struct pie80211_mbuf *pm;
+	IONetworkData *data;
+	IONetworkStats *stats;
 
+	if (fEnabled && fDrv != NULL && pie80211_drv_tx_stopped(fDrv))
+		return kIOReturnOutputStall;
+	data = fNetif != NULL ? fNetif->getParameter(kIONetworkStatsKey) : NULL;
+	stats = data != NULL ? (IONetworkStats *)data->getBuffer() : NULL;
 	if (!fEnabled || fDrv == NULL) {
 		freePacket(m);
+		if (stats != NULL)
+			stats->outputErrors++;
 		return kIOReturnOutputDropped;
 	}
-	if (pie80211_drv_tx_stopped(fDrv))
-		return kIOReturnOutputStall;
 	pm = pie80211_m_from_xnu(m, PIE80211_OUTPUT_LEAD);
 	freePacket(m);
-	if (pm == NULL || pie80211_drv_output(fDrv, pm) != 0)
+	if (pm == NULL || pie80211_drv_output(fDrv, pm) != 0) {
+		if (stats != NULL)
+			stats->outputErrors++;
 		return kIOReturnOutputDropped;
+	}
+	if (stats != NULL)
+		stats->outputPackets++;
 	return kIOReturnOutputSuccess;
 }
 

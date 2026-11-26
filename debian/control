@@ -14,8 +14,17 @@ Package: piewifi
 Architecture: darwin-arm64
 Depends: base-files (>= 8), blueberry-pie-os-kernel (>= 12377.121.6+pie8), kext-tools (>= 2),
  openssl (>= 3.5.9), pie-firmware-brcm (>= 20261019+ds1-1), pie-firmware-brcm (<< 20261019+ds2~)
-Description: WiFi for the CYW43455 on SDIO
- PIE80211Family.kext is OpenBSD's net80211 for a station, with open
- networks and WPA2-PSK with CCMP. PIEbwfm.kext is OpenBSD's bwfm driver
- for the CYW43455 of the Raspberry Pi 4 and 500. kextd loads the driver when
- the chip's SDIO function appears, and PIE80211Family with it.
+Description: WiFi station stack and Raspberry Pi 4 and 500 driver
+ PIE80211Family.kext provides the station wireless stack and WPA2-PSK
+ with CCMP. PIEbwfm.kext drives the CYW43455 on the Raspberry Pi 4 and 500.
+ The pie-wifi command manages networks, country settings and link status.
+ The piewifi-rtw88 package adds the RG353V driver.
+
+Package: piewifi-rtw88
+Architecture: darwin-arm64
+Depends: piewifi (= ${binary:Version}),
+ blueberry-pie-os-kernel (>= 12377.121.6+pie10),
+ pie-firmware-rtw88 (>= 20261019+ds1-1), pie-firmware-rtw88 (<< 20261019+ds2~)
+Description: Experimental WiFi for the RG353V
+ PIErtw88.kext provides an experimental RTL8821CS backend for the
+ RG353V internal SDIO slot with conservative initial power limits.

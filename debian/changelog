@@ -1,3 +1,14 @@
+piewifi (2) blueberry-pie-os; urgency=medium
+
+  * Count accepted output packets and rejected frames.
+  * Keep source packages to the files used by the build.
+  * Add the RTL8821CS backend for the RG353V internal wireless slot, in
+    its own package, piewifi-rtw88.
+  * Refresh station channels when country settings change.
+  * Apply country and chipset power limits to legacy station operation.
+
+ -- Maxwell <maxwell@blueberrypieos.com>  Wed, 25 Nov 2026 22:57:50 +0000
+
 piewifi (1) blueberry-pie-os; urgency=medium
 
   * piewifi 1

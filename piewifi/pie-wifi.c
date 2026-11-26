@@ -368,6 +368,7 @@ cmd_status(void)
 		[PIE80211_PROBLEM_KEY_INSTALL] = "the driver could not install the key",
 		[PIE80211_PROBLEM_EAPOL_NOACK] = "the access point did not acknowledge a handshake frame",
 		[PIE80211_PROBLEM_HANDSHAKE] = "the network ended the WPA2 handshake: the passphrase may be wrong",
+		[PIE80211_PROBLEM_HANDSHAKE_TIMEOUT] = "the WPA2 handshake did not finish",
 	};
 	struct pie80211_status st;
 
